@@ -1,0 +1,31 @@
+{
+  "id": "bean.ninja",
+  "kind": "avatar",
+  "name": "Ninja",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 700
+  },
+  "palette": {
+    "body": "#1f2937",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "mask",
+      "anchor": "head"
+    },
+    {
+      "sprite": "headband",
+      "anchor": "head"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

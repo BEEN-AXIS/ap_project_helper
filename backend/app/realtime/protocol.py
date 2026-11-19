@@ -140,6 +140,28 @@ class RatingBlock(M):
     practice: bool | None = None
 
 
+class RewardLine(M):
+    key: str
+    ap: int
+
+
+class QuestTick(M):
+    id: str
+    progress: int
+    target: int
+    ap: int
+    complete: bool
+
+
+class RewardsGranted(M):
+    side: int | None = None
+    ap: int = 0
+    lines: list[RewardLine] = []
+    quests: list[QuestTick] = []
+    achievements: list[str] = []
+    unlocked: list[str] = []
+
+
 class MatchEnded(M):
     outcome: Literal["win", "draw", "aborted"]
     winner_side: int | None
@@ -153,6 +175,7 @@ class MatchEnded(M):
     stats: dict[str, dict[str, int | bool | None]] | None = None
     hits_landed: dict[str, int] | None = None
     damage_dealt: dict[str, int] | None = None
+    rewards: dict[str, RewardsGranted] | None = None
 
 
 class StateSnapshot(M):
@@ -292,28 +315,6 @@ class PlayerDisconnected(M):
 class Emote(M):
     side: int
     id: str
-
-
-class RewardLine(M):
-    key: str
-    ap: int
-
-
-class QuestTick(M):
-    id: str
-    progress: int
-    target: int
-    ap: int
-    complete: bool
-
-
-class RewardsGranted(M):
-    side: int
-    ap: int = 0
-    lines: list[RewardLine] = []
-    quests: list[QuestTick] = []
-    achievements: list[str] = []
-    unlocked: list[str] = []
 
 
 class SessionMoved(M):

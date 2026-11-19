@@ -1,0 +1,31 @@
+{
+  "id": "bean.armor",
+  "kind": "avatar",
+  "name": "Armor",
+  "rarity": "epic",
+  "unlock": {
+    "type": "tier",
+    "tier": 4
+  },
+  "palette": {
+    "body": "#94a3b8",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "armor",
+      "anchor": "head"
+    },
+    {
+      "sprite": "sword",
+      "anchor": "hand"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

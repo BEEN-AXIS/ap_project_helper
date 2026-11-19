@@ -107,6 +107,7 @@ export interface MatchEnded {
   stats?: Record<string, Record<string, number | boolean | null>> | null;
   hits_landed?: Record<string, number> | null;
   damage_dealt?: Record<string, number> | null;
+  rewards?: Record<string, RewardsGranted> | null;
 }
 
 export interface MatchInfo {
@@ -229,7 +230,7 @@ export interface RewardLine {
 }
 
 export interface RewardsGranted {
-  side: number;
+  side?: number | null;
   ap?: number;
   lines?: Array<RewardLine>;
   quests?: Array<QuestTick>;

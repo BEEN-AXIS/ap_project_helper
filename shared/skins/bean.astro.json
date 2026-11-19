@@ -1,0 +1,27 @@
+{
+  "id": "bean.astro",
+  "kind": "avatar",
+  "name": "Astronaut",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 700
+  },
+  "palette": {
+    "body": "#e2e8f0",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "helmet",
+      "anchor": "head"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "id": "card.magma",
+  "kind": "card",
+  "name": "Magma Forge",
+  "rarity": "epic",
+  "unlock": {
+    "type": "ap",
+    "price": 2500
+  },
+  "palette": {
+    "bg": [
+      "#1a0603",
+      "#4a1206"
+    ],
+    "border": "#f97316",
+    "text": "#fff7ed",
+    "accent": "#fb923c"
+  },
+  "frame": {
+    "style": "molten",
+    "animated": true
+  },
+  "idle": {
+    "particles": "embers",
+    "rate": 8
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.6,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "magma",
+    "projectile": "orb",
+    "ramp": [
+      "#fff7d6",
+      "#fdba74",
+      "#f97316",
+      "#9a3412",
+      "#1a0603"
+    ],
+    "trail": "drips",
+    "impact": "lava-splash",
+    "status": "burning",
+    "number": {
+      "fill": "#fff7ed",
+      "stroke": "#7c2d12"
+    },
+    "sfx": "magma"
+  },
+  "block": {
+    "dome": "#fb923c"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

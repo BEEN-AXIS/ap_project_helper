@@ -1,0 +1,30 @@
+{
+  "id": "arena.space",
+  "kind": "arena",
+  "name": "Deep Space",
+  "rarity": "epic",
+  "unlock": {
+    "type": "tier",
+    "tier": 4
+  },
+  "palette": {
+    "sky": [
+      "#020617",
+      "#1e1b4b"
+    ],
+    "floor": "#312e81",
+    "accent": "#a78bfa",
+    "text": "#ede9fe"
+  },
+  "layers": [
+    "stars"
+  ],
+  "ambient": {
+    "particles": "comets",
+    "rate": 2
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

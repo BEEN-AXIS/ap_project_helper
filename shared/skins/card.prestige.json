@@ -1,0 +1,60 @@
+{
+  "id": "card.prestige",
+  "kind": "card",
+  "name": "Prestige Gold",
+  "rarity": "legendary",
+  "unlock": {
+    "type": "tier",
+    "tier": 5
+  },
+  "palette": {
+    "bg": [
+      "#1f1503",
+      "#4a3305"
+    ],
+    "border": "#eab308",
+    "text": "#fefce8",
+    "accent": "#facc15"
+  },
+  "frame": {
+    "style": "gold-foil",
+    "animated": true
+  },
+  "idle": {
+    "particles": "coins",
+    "rate": 4
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.8,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "gold",
+    "projectile": "comet",
+    "ramp": [
+      "#ffffff",
+      "#fef08a",
+      "#facc15",
+      "#a16207",
+      "#1f1503"
+    ],
+    "trail": "dust",
+    "impact": "coin-burst",
+    "status": "sparkling",
+    "number": {
+      "fill": "#fefce8",
+      "stroke": "#713f12"
+    },
+    "sfx": "gold"
+  },
+  "block": {
+    "dome": "#facc15"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

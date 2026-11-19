@@ -1,0 +1,60 @@
+{
+  "id": "card.frostbyte",
+  "kind": "card",
+  "name": "Frostbyte",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 800
+  },
+  "palette": {
+    "bg": [
+      "#0c2233",
+      "#164e63"
+    ],
+    "border": "#a5f3fc",
+    "text": "#ecfeff",
+    "accent": "#67e8f9"
+  },
+  "frame": {
+    "style": "ice-crystal",
+    "animated": true
+  },
+  "idle": {
+    "particles": "snow",
+    "rate": 4
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.2,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "ice",
+    "projectile": "shard",
+    "ramp": [
+      "#ffffff",
+      "#cffafe",
+      "#67e8f9",
+      "#0891b2",
+      "#083344"
+    ],
+    "trail": "mist",
+    "impact": "shatter",
+    "status": "frozen",
+    "number": {
+      "fill": "#ecfeff",
+      "stroke": "#164e63"
+    },
+    "sfx": "ice"
+  },
+  "block": {
+    "dome": "#a5f3fc"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

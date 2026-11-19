@@ -1,0 +1,27 @@
+{
+  "id": "bean.headband",
+  "kind": "avatar",
+  "name": "Headband",
+  "rarity": "common",
+  "unlock": {
+    "type": "tier",
+    "tier": 2
+  },
+  "palette": {
+    "body": "$player",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "headband",
+      "anchor": "head"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

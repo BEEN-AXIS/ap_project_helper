@@ -1,0 +1,30 @@
+{
+  "id": "arena.handheld",
+  "kind": "arena",
+  "name": "Green Plains",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 600
+  },
+  "palette": {
+    "sky": [
+      "#9bbc0f",
+      "#8bac0f"
+    ],
+    "floor": "#306230",
+    "accent": "#0f380f",
+    "text": "#0f380f"
+  },
+  "layers": [
+    "hills"
+  ],
+  "ambient": {
+    "particles": "motes",
+    "rate": 2
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

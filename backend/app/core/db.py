@@ -86,9 +86,17 @@ def init_db(use_migrations: bool | None = None) -> None:
             from alembic import command
             from alembic.config import Config
 
+            from sqlalchemy import inspect
+
             cfg = Config(str(BACKEND_DIR / "alembic.ini"))
             cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
-            cfg.set_main_option("sqlalchemy.url", settings.database_url)
+            cfg.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
+            cfg.set_main_option("skip_logging_config", "1")
+            names = set(inspect(get_engine()).get_table_names())
+            if "alembic_version" not in names and "profiles" in names:
+                # A database made by create_all before migrations existed: adopt it.
+                log.info("existing schema without alembic_version; stamping head")
+                command.stamp(cfg, "head")
             command.upgrade(cfg, "head")
             return
         except ImportError:

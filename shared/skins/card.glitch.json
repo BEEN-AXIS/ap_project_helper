@@ -1,0 +1,61 @@
+{
+  "id": "card.glitch",
+  "kind": "card",
+  "name": "Glitch Core",
+  "rarity": "legendary",
+  "unlock": {
+    "type": "achievement",
+    "id": "crit_machine",
+    "label": "Land 5 critical hits in one match"
+  },
+  "palette": {
+    "bg": [
+      "#0a0a12",
+      "#1a1030"
+    ],
+    "border": "#f0abfc",
+    "text": "#fdf4ff",
+    "accent": "#22d3ee"
+  },
+  "frame": {
+    "style": "rgb-split",
+    "animated": true
+  },
+  "idle": {
+    "particles": "glitch",
+    "rate": 5
+  },
+  "hover": {
+    "particles": "glitch",
+    "glow": 1.6,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "glitch",
+    "projectile": "orb",
+    "ramp": [
+      "#ffffff",
+      "#f0abfc",
+      "#22d3ee",
+      "#a21caf",
+      "#0a0a12"
+    ],
+    "trail": "rgb",
+    "impact": "screen-tear",
+    "status": "glitched",
+    "number": {
+      "fill": "#fdf4ff",
+      "stroke": "#701a75"
+    },
+    "sfx": "glitch"
+  },
+  "block": {
+    "dome": "#22d3ee"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

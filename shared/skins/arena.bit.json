@@ -1,0 +1,30 @@
+{
+  "id": "arena.bit",
+  "kind": "arena",
+  "name": "Binary Rain Stage",
+  "rarity": "common",
+  "unlock": {
+    "type": "default",
+    "map": "bit"
+  },
+  "palette": {
+    "sky": [
+      "#0f172a",
+      "#052e16"
+    ],
+    "floor": "#14532d",
+    "accent": "#22c55e",
+    "text": "#dcfce7"
+  },
+  "layers": [
+    "digits"
+  ],
+  "ambient": {
+    "particles": "bits",
+    "rate": 10
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

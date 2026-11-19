@@ -1,0 +1,30 @@
+{
+  "id": "arena.prestige",
+  "kind": "arena",
+  "name": "Marble Hall",
+  "rarity": "rare",
+  "unlock": {
+    "type": "default",
+    "map": "prestige"
+  },
+  "palette": {
+    "sky": [
+      "#1c1917",
+      "#3f3a33"
+    ],
+    "floor": "#57534e",
+    "accent": "#eab308",
+    "text": "#fafaf9"
+  },
+  "layers": [
+    "marble"
+  ],
+  "ambient": {
+    "particles": "motes",
+    "rate": 3
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

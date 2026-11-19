@@ -27,6 +27,17 @@ def docker_available() -> bool:
     return True
 
 
+def docker_image_present(image: str) -> bool:
+    """True when the daemon answers and the judge image is built (make judge-image)."""
+    import subprocess
+
+    try:
+        r = subprocess.run(["docker", "image", "inspect", image], capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return r.returncode == 0
+
+
 class DockerRunner:
     name = "docker"
     sandboxed = True

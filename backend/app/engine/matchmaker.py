@@ -96,7 +96,11 @@ class Matchmaker:
         if e is None:
             for p in self.proposals.values():
                 if profile_id in (p.a.profile_id, p.b.profile_id):
-                    return {"state": "proposal", "proposal_id": p.id}
+                    other = p.b if p.a.profile_id == profile_id else p.a
+                    return {"state": "proposal", "proposal_id": p.id, "map": p.map,
+                            "expires_in": max(0.0, round(p.expires_at - self.now(), 1)),
+                            "accepted": profile_id in p.accepted,
+                            "opponent": {"name": other.name, "rating": other.rating, "tier": other.tier}}
             return {"state": "idle"}
         wait = self.now() - e.joined_at
         fallback = self.cfg.matchmaking.bot_fallback_s

@@ -1,0 +1,61 @@
+{
+  "id": "card.binary_rain",
+  "kind": "card",
+  "name": "Binary Rain",
+  "rarity": "epic",
+  "unlock": {
+    "type": "achievement",
+    "id": "bit_master",
+    "label": "Win 25 Bit Manipulation matches"
+  },
+  "palette": {
+    "bg": [
+      "#03140a",
+      "#0a2e16"
+    ],
+    "border": "#22c55e",
+    "text": "#dcfce7",
+    "accent": "#4ade80"
+  },
+  "frame": {
+    "style": "binary-rain",
+    "animated": true
+  },
+  "idle": {
+    "particles": "bits",
+    "rate": 8
+  },
+  "hover": {
+    "particles": "bits",
+    "glow": 1.4,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "bits",
+    "projectile": "glyphs",
+    "ramp": [
+      "#f0fdf4",
+      "#bbf7d0",
+      "#4ade80",
+      "#15803d",
+      "#03140a"
+    ],
+    "trail": "bits",
+    "impact": "glyph-scatter",
+    "status": "glitched",
+    "number": {
+      "fill": "#dcfce7",
+      "stroke": "#14532d"
+    },
+    "sfx": "bits"
+  },
+  "block": {
+    "dome": "#4ade80"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

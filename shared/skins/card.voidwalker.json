@@ -1,0 +1,60 @@
+{
+  "id": "card.voidwalker",
+  "kind": "card",
+  "name": "Voidwalker",
+  "rarity": "epic",
+  "unlock": {
+    "type": "tier",
+    "tier": 4
+  },
+  "palette": {
+    "bg": [
+      "#0b0618",
+      "#1e0b3a"
+    ],
+    "border": "#a855f7",
+    "text": "#f3e8ff",
+    "accent": "#c084fc"
+  },
+  "frame": {
+    "style": "void-rim",
+    "animated": true
+  },
+  "idle": {
+    "particles": "motes",
+    "rate": 4
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.5,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "void",
+    "projectile": "vortex",
+    "ramp": [
+      "#f5f3ff",
+      "#c4b5fd",
+      "#8b5cf6",
+      "#4c1d95",
+      "#0b0618"
+    ],
+    "trail": "dust",
+    "impact": "implode-burst",
+    "status": "dimmed",
+    "number": {
+      "fill": "#f3e8ff",
+      "stroke": "#3b0764"
+    },
+    "sfx": "void"
+  },
+  "block": {
+    "dome": "#c084fc"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

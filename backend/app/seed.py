@@ -133,8 +133,13 @@ def seed(demo_users: bool = True, problems_dir: Path = PROBLEMS_DIR) -> dict[str
 
 
 def main() -> None:
-    out = seed(demo_users="--no-demo" not in sys.argv)
-    print(f"seeded {out['problems']} problems, demo users alice/bob/admin and bot profiles")
+    # Demo accounts have published passwords, so prod skips them unless asked.
+    from app.core.config import get_settings
+
+    demo = "--no-demo" not in sys.argv and (not get_settings().is_prod or "--demo" in sys.argv)
+    out = seed(demo_users=demo)
+    who = "demo users alice/bob/admin and " if demo else ""
+    print(f"seeded {out['problems']} problems, {who}bot profiles")
 
 
 if __name__ == "__main__":

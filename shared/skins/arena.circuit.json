@@ -1,0 +1,30 @@
+{
+  "id": "arena.circuit",
+  "kind": "arena",
+  "name": "Circuit Grid",
+  "rarity": "common",
+  "unlock": {
+    "type": "default",
+    "map": "binary"
+  },
+  "palette": {
+    "sky": [
+      "#0b1220",
+      "#0f2a3d"
+    ],
+    "floor": "#0e3a4f",
+    "accent": "#06b6d4",
+    "text": "#e0f2fe"
+  },
+  "layers": [
+    "circuit"
+  ],
+  "ambient": {
+    "particles": "sparks",
+    "rate": 4
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

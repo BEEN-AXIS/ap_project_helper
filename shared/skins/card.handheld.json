@@ -1,0 +1,60 @@
+{
+  "id": "card.handheld",
+  "kind": "card",
+  "name": "Handheld Green",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 600
+  },
+  "palette": {
+    "bg": [
+      "#0f380f",
+      "#306230"
+    ],
+    "border": "#8bac0f",
+    "text": "#e8f5c8",
+    "accent": "#9bbc0f"
+  },
+  "frame": {
+    "style": "handheld",
+    "animated": false
+  },
+  "idle": {
+    "particles": "motes",
+    "rate": 2
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.1,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "handheld",
+    "projectile": "orb",
+    "ramp": [
+      "#e0f8d0",
+      "#9bbc0f",
+      "#8bac0f",
+      "#306230",
+      "#0f380f"
+    ],
+    "trail": "pixel",
+    "impact": "pixel-burst",
+    "status": "blinking",
+    "number": {
+      "fill": "#e0f8d0",
+      "stroke": "#0f380f"
+    },
+    "sfx": "blip"
+  },
+  "block": {
+    "dome": "#9bbc0f"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

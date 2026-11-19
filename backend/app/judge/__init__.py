@@ -22,11 +22,19 @@ def make_runner(settings: Settings) -> Runner:
 
         return Judge0Runner(settings.judge0_url)
     if backend in ("docker", "auto"):
-        from app.judge.docker_runner import DockerRunner, docker_available
+        from app.judge.docker_runner import DockerRunner, docker_available, docker_image_present
 
-        if backend == "docker" or docker_available():
+        if backend == "docker":
             return DockerRunner(settings.judge_image)
-        log.warning("no Docker daemon found; falling back to the DEV SANDBOX subprocess runner")
+        if docker_available() and docker_image_present(settings.judge_image):
+            return DockerRunner(settings.judge_image)
+        if settings.is_prod:
+            raise RuntimeError(
+                f"JUDGE_BACKEND=auto found no Docker judge image {settings.judge_image!r}; "
+                "run `make judge-image` or set JUDGE_BACKEND=judge0"
+            )
+        log.warning("Docker or the judge image is missing; using the DEV SANDBOX subprocess runner "
+                    "(run `make judge-image` to judge in containers)")
     from app.judge.subprocess_runner import SubprocessRunner
 
     return SubprocessRunner(settings.env)

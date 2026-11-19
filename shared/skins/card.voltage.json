@@ -1,0 +1,60 @@
+{
+  "id": "card.voltage",
+  "kind": "card",
+  "name": "Voltage",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 800
+  },
+  "palette": {
+    "bg": [
+      "#1c1a05",
+      "#3f3a0a"
+    ],
+    "border": "#facc15",
+    "text": "#fefce8",
+    "accent": "#fde047"
+  },
+  "frame": {
+    "style": "circuit",
+    "animated": true
+  },
+  "idle": {
+    "particles": "sparks",
+    "rate": 5
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.6,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "lightning",
+    "projectile": "bolt",
+    "ramp": [
+      "#ffffff",
+      "#fef9c3",
+      "#fde047",
+      "#ca8a04",
+      "#1c1a05"
+    ],
+    "trail": "arc",
+    "impact": "arc-burst",
+    "status": "shocked",
+    "number": {
+      "fill": "#fefce8",
+      "stroke": "#713f12"
+    },
+    "sfx": "zap"
+  },
+  "block": {
+    "dome": "#fde047"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

@@ -1,0 +1,920 @@
+/**
+ * Canvas2D effects engine. Layers, back to front: theme background, fighter
+ * sprites + effects canvas, screen-space canvas (flash, vignette, speed lines),
+ * then the DOM HUD. Camera shake and zoom are CSS transforms on the arena root.
+ * The loop runs a fixed 60 Hz simulation step with an accumulator (at most 5
+ * steps a frame); timeScale drives slow motion and hitStop freezes sprites and
+ * particles while the HUD keeps running. No per-particle gradients or shadowBlur.
+ */
+import type { ArenaSkin } from "../skins/registry";
+import { Fighter } from "./fighters";
+import { ADDITIVE, glowSprite, Kind, noise, Particles, puffSprite, squareSprite } from "./particles";
+import { HPBAR, NUMBER } from "./timings";
+
+export type Quality = "high" | "low" | "off";
+export const QUALITY: Record<Quality, { maxParticles: number; dprCap: number; smoke: boolean; decals: boolean }> = {
+  high: { maxParticles: 2000, dprCap: 2, smoke: true, decals: true },
+  low: { maxParticles: 600, dprCap: 1, smoke: false, decals: false },
+  off: { maxParticles: 0, dprCap: 1, smoke: false, decals: false },
+};
+
+const STEP = 1000 / 60;
+
+export interface Projectile {
+  from: [number, number];
+  to: () => [number, number];
+  t0: number;
+  dur: number;
+  size: number;
+  ramp: number;
+  style: string;
+  trail: number;
+  trailStyle: string;
+  done: boolean;
+  onArrive?: () => void;
+  pos: [number, number];
+  warn?: boolean; // the defender's screen edge glows when it is within 200 px
+}
+
+interface FloatText {
+  text: string;
+  x: number;
+  y: number;
+  t0: number;
+  size: number;
+  fill: string;
+  stroke: string;
+  tag?: string;
+  tagColor?: string;
+  strike?: boolean;
+  big?: boolean; // centre stamp (K.O., TIME!)
+  dur: number;
+}
+
+interface Ring {
+  x: number;
+  y: number;
+  t0: number;
+  dur: number;
+  r0: number;
+  r1: number;
+  color: string;
+  width: number;
+}
+
+interface Decal {
+  x: number;
+  y: number;
+  r: number;
+  t0: number;
+  dur: number;
+  crack: boolean;
+}
+
+interface Shake {
+  amp: number;
+  t0: number;
+  dur: number;
+  rot: boolean;
+  seed: number;
+}
+
+export interface ShieldFx {
+  until: number;
+  color: string;
+  crackUntil: number;
+  shattered: boolean;
+}
+
+/** HP bar: the fill snaps in 120 ms; a pale ghost waits 450 ms then drains over 700 ms; the counter tweens 500 ms. */
+export class HpBarController {
+  shown: number;
+  ghost: number;
+  target: number;
+  max: number;
+  private changeT = 0;
+  private from = 0;
+  private ghostFrom = 0;
+  joltUntil = 0;
+  constructor(
+    public els: { fill: HTMLElement; ghost: HTMLElement; text: HTMLElement; box?: HTMLElement | null },
+    hp: number,
+    max: number,
+  ) {
+    this.shown = this.ghost = this.target = hp;
+    this.max = max;
+    this.render(0);
+  }
+  set(hp: number, max: number, now: number, animate: boolean): void {
+    if (hp === this.target && max === this.max) return;
+    const dropping = hp < this.target;
+    this.from = this.shown;
+    this.ghostFrom = Math.max(this.ghost, this.shown);
+    this.target = hp;
+    this.max = max;
+    this.changeT = now;
+    if (!animate) {
+      this.shown = this.ghost = hp;
+    } else if (dropping) this.joltUntil = now + 150;
+    else this.ghost = hp;
+    this.render(now);
+  }
+  tick(now: number, reduced: boolean): void {
+    const dt = now - this.changeT;
+    if (this.shown !== this.target) {
+      const k = Math.min(1, dt / HPBAR.counterMs);
+      this.shown = Math.round(this.from + (this.target - this.from) * (1 - (1 - k) ** 2));
+    }
+    if (this.ghost > this.target) {
+      if (reduced) this.ghost = this.target;
+      else if (dt > HPBAR.ghostWaitMs) {
+        const k = Math.min(1, (dt - HPBAR.ghostWaitMs) / HPBAR.ghostDrainMs);
+        this.ghost = this.ghostFrom + (this.target - this.ghostFrom) * k;
+      }
+    } else this.ghost = Math.max(this.ghost, this.target);
+    this.render(now);
+  }
+  private render(now: number): void {
+    const pct = this.max > 0 ? (this.target / this.max) * 100 : 0;
+    const share = this.max > 0 ? this.target / this.max : 0;
+    this.els.fill.style.width = `${pct}%`;
+    this.els.fill.style.background = share > 0.5 ? "var(--hp-high)" : share >= 0.2 ? "var(--hp-mid)" : "var(--hp-low)";
+    this.els.fill.classList.toggle("hp-pulse-1", share < 0.2 && share >= 0.1 && share > 0);
+    this.els.fill.classList.toggle("hp-pulse-2", share < 0.1 && share > 0);
+    this.els.ghost.style.width = `${this.max > 0 ? (this.ghost / this.max) * 100 : 0}%`;
+    this.els.text.textContent = `${Math.round(this.shown).toLocaleString("en-US")} / ${this.max.toLocaleString("en-US")}`;
+    if (this.els.box) this.els.box.style.transform = now < this.joltUntil ? `translateX(${Math.sin(now / 12) * 3}px)` : "";
+  }
+}
+
+export class Engine {
+  now: () => number = () => performance.now();
+  gameTime = 0;
+  timeScale = 1;
+  private slowUntil = 0;
+  private slowScale = 1;
+  hitStopUntil = 0;
+  quality: Quality = "high";
+  autoQuality = true;
+  reduced = false;
+  shakeScale = 1;
+  flashScale = 1;
+  paused = false;
+  frames = 0;
+  fps = 60;
+  private frameEma = 16.7;
+  private slowFrames = 0;
+  particles = new Particles(2000);
+  fighters: Record<1 | 2, Fighter> = { 1: new Fighter(), 2: new Fighter() };
+  you: 1 | 2 = 1;
+  projectiles: Projectile[] = [];
+  texts: FloatText[] = [];
+  rings: Ring[] = [];
+  decals: Decal[] = [];
+  shakes: Shake[] = [];
+  shields: Partial<Record<1 | 2, ShieldFx>> = {};
+  charge: Partial<Record<1 | 2, { size: number; target: number; mine: boolean; ramp: number; unstable: number }>> = {};
+  status: Partial<Record<1 | 2, { kind: string; until: number }>> = {};
+  hp: Partial<Record<1 | 2, HpBarController>> = {};
+  flash = { a: 0, t0: 0, dur: 200, color: "#ffffff" };
+  vignette = { a: 0, t0: 0, dur: 500, color: "239,68,68", side: 0 };
+  edgeGlow = 0;
+  speedLines = { until: 0, t0: 0 };
+  aberration = { until: 0, px: 0 };
+  tear = { until: 0 };
+  zoom = { from: 1, to: 1, t0: 0, dur: 1, cx: 0.5, cy: 0.5 };
+  lowHpPulse = false;
+  ramps: string[][] = [];
+  private rampIndex = new Map<string, number>();
+  private raf = 0;
+  private last = 0;
+  private acc = 0;
+  private W = 800;
+  private H = 400;
+  private dpr = 1;
+  theme: ArenaSkin | null = null;
+  private bgDirty = true;
+  private ambientT = 0;
+  onFrame: ((e: Engine) => void) | null = null;
+
+  constructor(
+    public root: HTMLElement,
+    public bg: HTMLCanvasElement,
+    public fx: HTMLCanvasElement,
+    public screen: HTMLCanvasElement,
+  ) {
+    this.fighters[1].facing = 1;
+    this.fighters[2].facing = -1;
+    this.ramp(["#fff7d6", "#ffd23f", "#ff7a1a", "#d62718", "#2a1a1a"]);
+  }
+
+  // ------------------------------------------------------------------ setup
+  ramp(colors: string[]): number {
+    const key = colors.join(",");
+    let i = this.rampIndex.get(key);
+    if (i === undefined) {
+      i = this.ramps.length;
+      this.ramps.push(colors);
+      this.rampIndex.set(key, i);
+    }
+    return i;
+  }
+
+  setQuality(q: Quality, auto = this.autoQuality): void {
+    this.quality = q;
+    this.autoQuality = auto;
+    this.particles.limit = QUALITY[q].maxParticles;
+    if (q === "off") this.particles.clear();
+    this.resize();
+  }
+
+  setTheme(theme: ArenaSkin): void {
+    this.theme = theme;
+    this.bgDirty = true;
+  }
+
+  get width(): number {
+    return this.W;
+  }
+  get height(): number {
+    return this.H;
+  }
+
+  /** Fighter placement: the opponent top-right, you bottom-left and larger (nearer the camera). */
+  layout(): void {
+    const k = Math.min(1.25, Math.max(0.35, this.H / 420));
+    const me = this.fighters[this.you];
+    const opp = this.fighters[this.you === 1 ? 2 : 1];
+    me.scale = 5 * k * (this.W < 700 ? 0.8 : 1);
+    opp.scale = 4 * k * (this.W < 700 ? 0.8 : 1);
+    me.baseX = this.W * 0.22;
+    me.baseY = this.H * 0.66;
+    opp.baseX = this.W * 0.76;
+    opp.baseY = this.H * 0.36;
+    me.facing = 1;
+    opp.facing = -1;
+  }
+
+  resize(): void {
+    const r = this.root.getBoundingClientRect();
+    this.W = Math.max(200, r.width);
+    this.H = Math.max(120, r.height);
+    this.dpr = Math.min(window.devicePixelRatio || 1, QUALITY[this.quality].dprCap);
+    for (const c of [this.bg, this.fx, this.screen]) {
+      c.width = Math.round(this.W * this.dpr);
+      c.height = Math.round(this.H * this.dpr);
+      c.style.width = `${this.W}px`;
+      c.style.height = `${this.H}px`;
+    }
+    this.layout();
+    this.bgDirty = true;
+  }
+
+  start(): void {
+    this.resize();
+    this.last = this.now();
+    const loop = () => {
+      this.raf = requestAnimationFrame(loop);
+      this.frame(this.now());
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+
+  stop(): void {
+    cancelAnimationFrame(this.raf);
+  }
+
+  /** Frame stepping for the VFX Lab: advance exactly one simulation step while paused. */
+  stepOnce(): void {
+    const was = this.paused;
+    this.paused = false;
+    this.frame(this.last + STEP);
+    this.paused = was;
+  }
+
+  // ------------------------------------------------------------------ effects API
+  slowmo(scale: number, ms: number): void {
+    if (this.reduced) return;
+    this.slowScale = Math.min(this.slowScale < 1 && this.now() < this.slowUntil ? this.slowScale : 1, scale);
+    this.slowUntil = Math.max(this.slowUntil, this.now() + ms);
+  }
+
+  hitStop(ms: number): void {
+    if (this.reduced) return;
+    this.hitStopUntil = Math.max(this.hitStopUntil, this.now() + ms);
+  }
+
+  shake(amp: number, ms: number, rot = false): void {
+    if (this.reduced || this.shakeScale <= 0) return;
+    this.shakes.push({ amp: amp * this.shakeScale, t0: this.now(), dur: ms, rot, seed: Math.random() * 100 });
+  }
+
+  flashWhite(alpha: number, ms = 220, color = "#ffffff"): void {
+    if (this.reduced) return;
+    // Flashes stay under three per second.
+    if (this.now() - this.flash.t0 < 340) alpha = Math.min(alpha, this.flash.a * 0.5);
+    this.flash = { a: alpha * this.flashScale, t0: this.now(), dur: ms, color };
+  }
+
+  damageVignette(alpha: number, ms = 500): void {
+    this.vignette = { a: alpha * this.flashScale, t0: this.now(), dur: ms, color: "239,68,68", side: 0 };
+  }
+
+  zoomTo(z: number, ms: number, cx = 0.5, cy = 0.5): void {
+    if (this.reduced) return;
+    const cur = this.currentZoom();
+    this.zoom = { from: cur, to: z, t0: this.now(), dur: ms, cx, cy };
+  }
+
+  private currentZoom(): number {
+    const k = Math.min(1, (this.now() - this.zoom.t0) / this.zoom.dur);
+    return this.zoom.from + (this.zoom.to - this.zoom.from) * (1 - (1 - k) ** 3);
+  }
+
+  ring(x: number, y: number, r1: number, ms: number, color = "#fff7d6", width = 6, r0 = 4): void {
+    if (this.quality === "off" && !this.reduced) return;
+    this.rings.push({ x, y, t0: this.gameTime, dur: ms, r0, r1, color, width });
+  }
+
+  decal(x: number, y: number, r: number, crack: boolean): void {
+    if (!QUALITY[this.quality].decals || this.reduced) return;
+    this.decals.push({ x, y, r, t0: this.gameTime, dur: 3000, crack });
+    if (this.decals.length > 8) this.decals.shift();
+  }
+
+  text(t: Omit<FloatText, "t0" | "dur"> & { dur?: number }): void {
+    const now = this.gameTime;
+    let y = t.y;
+    if (!t.big) {
+      for (const o of this.texts) if (!o.big && now - o.t0 < NUMBER.stackGapMs && Math.abs(o.x - t.x) < 80) y = Math.min(y, o.y - NUMBER.stackPx);
+    }
+    this.texts.push({ ...t, y, t0: now, dur: t.dur ?? NUMBER.riseMs });
+  }
+
+  /** Emit n particles in a burst. Low quality scales counts by 0.35 and drops smoke. */
+  burst(kind: Kind, x: number, y: number, n: number, speed: number, life: number, size: [number, number], ramp: number, opts: { ay?: number; drag?: number; spread?: number; dir?: number; bounceY?: number; up?: number } = {}): void {
+    if (this.quality === "off" || this.reduced) return;
+    if (kind === Kind.Smoke && !QUALITY[this.quality].smoke) return;
+    const count = Math.round(this.quality === "low" ? n * 0.35 : n);
+    const spread = opts.spread ?? Math.PI * 2;
+    const dir = opts.dir ?? -Math.PI / 2;
+    for (let i = 0; i < count; i++) {
+      const a = dir + (Math.random() - 0.5) * spread;
+      const v = speed * (0.35 + Math.random() * 0.65);
+      const idx = this.particles.spawn(kind, x, y, Math.cos(a) * v, Math.sin(a) * v - (opts.up ?? 0), life * (0.6 + Math.random() * 0.4), size[0], size[1], ramp, opts.ay ?? 0, opts.drag ?? 1.5);
+      if (opts.bounceY !== undefined) this.particles.setBounce(idx, opts.bounceY);
+    }
+  }
+
+  launch(p: Omit<Projectile, "done" | "pos" | "t0">): Projectile {
+    const proj: Projectile = { ...p, t0: this.gameTime, done: false, pos: [...p.from] as [number, number] };
+    this.projectiles.push(proj);
+    return proj;
+  }
+
+  setStatus(side: 1 | 2, kind: string, ms: number): void {
+    this.status[side] = { kind, until: this.gameTime + ms };
+  }
+
+  // ------------------------------------------------------------------ loop
+  frame(now: number): void {
+    if (this.paused) {
+      this.last = now;
+      return;
+    }
+    const raw = Math.min(250, now - this.last);
+    this.last = now;
+    this.frameEma = this.frameEma * 0.95 + raw * 0.05;
+    this.fps = 1000 / this.frameEma;
+    if (this.autoQuality && this.quality !== "off") {
+      this.slowFrames = this.frameEma > 22 ? this.slowFrames + 1 : 0;
+      if (this.slowFrames > 90) {
+        this.setQuality(this.quality === "high" ? "low" : "off", true); // never step up automatically
+        this.slowFrames = 0;
+      }
+    }
+    if (now > this.slowUntil) this.slowScale = 1;
+    const frozen = now < this.hitStopUntil;
+    this.acc += raw;
+    let steps = 0;
+    while (this.acc >= STEP && steps < 5) {
+      const dt = STEP * this.timeScale * this.slowScale;
+      if (!frozen) {
+        this.gameTime += dt;
+        this.particles.update(dt);
+        this.updateProjectiles(dt);
+        this.ambient(dt);
+      }
+      for (const f of [this.fighters[1], this.fighters[2]]) f.update(dt, frozen);
+      this.acc -= STEP;
+      steps++;
+    }
+    if (steps === 5) this.acc = 0;
+    this.frames++;
+    this.onFrame?.(this);
+    for (const k of [1, 2] as const) this.hp[k]?.tick(now, this.reduced);
+    this.applyCamera(now);
+    this.draw(now);
+  }
+
+  private updateProjectiles(dt: number): void {
+    for (const p of this.projectiles) {
+      if (p.done) continue;
+      const k = Math.min(1, (this.gameTime - p.t0) / p.dur);
+      const e = k * k * k; // cubic ease-in toward the target
+      const to = p.to();
+      const dx = to[0] - p.from[0];
+      const dy = to[1] - p.from[1];
+      const dist = Math.hypot(dx, dy);
+      // quadratic Bezier with the control point raised by 18% of the distance
+      const cx = p.from[0] + dx / 2;
+      const cy = p.from[1] + dy / 2 - dist * 0.18;
+      const u = 1 - e;
+      p.pos = [u * u * p.from[0] + 2 * u * e * cx + e * e * to[0], u * u * p.from[1] + 2 * u * e * cy + e * e * to[1]];
+      if (this.quality !== "off" && !this.reduced) {
+        const n = Math.max(1, Math.round((p.trail * dt) / STEP));
+        for (let i = 0; i < n; i++) {
+          const kind = p.trailStyle === "mist" ? Kind.Smoke : p.trailStyle === "bits" ? Kind.Glyph : p.trailStyle === "pixel" ? Kind.Square : Kind.Flame;
+          this.particles.spawn(kind, p.pos[0] + (Math.random() - 0.5) * p.size * 0.6, p.pos[1] + (Math.random() - 0.5) * p.size * 0.6, (Math.random() - 0.5) * 40, -20 - Math.random() * 40, 260 + Math.random() * 200, p.size * 0.6, p.size * 0.15, p.ramp, -30, 2);
+        }
+      }
+      if (p.warn && Math.hypot(to[0] - p.pos[0], to[1] - p.pos[1]) < 200) this.edgeGlow = 1;
+      if (k >= 1) {
+        p.done = true;
+        p.onArrive?.();
+      }
+    }
+    this.projectiles = this.projectiles.filter((p) => !p.done);
+  }
+
+  private ambient(dt: number): void {
+    const th = this.theme;
+    if (!th || !th.ambient.particles || this.quality === "off" || this.reduced) return;
+    this.ambientT += dt;
+    const every = 1000 / Math.max(0.5, th.ambient.rate);
+    while (this.ambientT > every) {
+      this.ambientT -= every;
+      const r = this.ramp([th.palette.accent, th.palette.accent, th.palette.text, th.palette.floor, th.palette.sky[0]]);
+      const kind = th.ambient.particles === "bits" ? Kind.Glyph : th.ambient.particles === "ash" ? Kind.Square : Kind.Glow;
+      const fall = th.ambient.particles === "comets" ? 0 : 1;
+      this.particles.spawn(kind, Math.random() * this.W, fall ? -10 : Math.random() * this.H * 0.4, th.ambient.particles === "comets" ? -120 : (Math.random() - 0.5) * 10, fall ? 30 + Math.random() * 40 : 20, 6000, kind === Kind.Glyph ? 10 : 3, kind === Kind.Glyph ? 10 : 2, r, 0, 0);
+    }
+  }
+
+  private applyCamera(now: number): void {
+    let x = 0;
+    let y = 0;
+    let rot = 0;
+    this.shakes = this.shakes.filter((s) => now - s.t0 < s.dur);
+    for (const s of this.shakes) {
+      const k = 1 - (now - s.t0) / s.dur;
+      const t = (now - s.t0) / 1000;
+      x += s.amp * k * (Math.sin(t * 61 + s.seed) * 0.6 + Math.sin(t * 37) * 0.4 + noise(t * 30 + s.seed) * 0.3);
+      y += s.amp * k * (Math.cos(t * 53 + s.seed) * 0.6 + noise(t * 25) * 0.4);
+      if (s.rot) rot += 1.5 * k * Math.sin(t * 29 + s.seed);
+    }
+    const z = this.currentZoom();
+    this.root.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rot.toFixed(2)}deg) scale(${z.toFixed(3)})`;
+    this.root.style.transformOrigin = `${this.zoom.cx * 100}% ${this.zoom.cy * 100}%`;
+  }
+
+  // ------------------------------------------------------------------ drawing
+  private drawBackground(): void {
+    const g = this.bg.getContext("2d")!;
+    const W = this.W;
+    const H = this.H;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const th = this.theme;
+    const sky = th?.palette.sky ?? ["#0f172a", "#052e16"];
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, sky[0]);
+    grad.addColorStop(1, sky[1]);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+    const layer = th?.layers[0] ?? "digits";
+    const accent = th?.palette.accent ?? "#22c55e";
+    g.globalAlpha = 0.18;
+    g.fillStyle = accent;
+    g.strokeStyle = accent;
+    if (layer === "digits") {
+      g.font = "14px monospace";
+      for (let y = 20; y < H; y += 26) for (let x = 8 + ((y / 26) % 2) * 12; x < W; x += 48) g.fillText(((x * 7 + y * 3) % 5) % 2 ? "1" : "0", x, y);
+    } else if (layer === "circuit") {
+      g.lineWidth = 2;
+      for (let i = 0; i < 26; i++) {
+        const x = (i * 97) % W;
+        const y = (i * 53) % H;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.lineTo(x + 60, y);
+        g.lineTo(x + 60, y + 40);
+        g.lineTo(x + 110, y + 40);
+        g.stroke();
+        g.fillRect(x + 106, y + 36, 8, 8);
+      }
+    } else if (layer === "marble") {
+      g.globalAlpha = 0.25;
+      for (let i = 0; i < 5; i++) {
+        const sx = W * (0.1 + i * 0.2);
+        const sg = g.createRadialGradient(sx, 0, 0, sx, 0, H * 0.9);
+        sg.addColorStop(0, "#fde68a");
+        sg.addColorStop(1, "transparent");
+        g.fillStyle = sg;
+        g.fillRect(0, 0, W, H);
+      }
+      g.globalAlpha = 0.5;
+      g.fillStyle = accent;
+      g.fillRect(0, H * 0.82, W, 3);
+    } else if (layer === "hills") {
+      g.globalAlpha = 1;
+      const shades = ["#8bac0f", "#306230", "#0f380f"];
+      shades.forEach((c, i) => {
+        g.fillStyle = c;
+        g.beginPath();
+        g.moveTo(0, H);
+        for (let x = 0; x <= W; x += 8) g.lineTo(x, H * (0.55 + i * 0.13) + Math.round(Math.sin(x / (90 - i * 20) + i) * 14 / 4) * 4);
+        g.lineTo(W, H);
+        g.fill();
+      });
+    } else if (layer === "lava") {
+      g.globalAlpha = 0.45;
+      const lg = g.createLinearGradient(0, H * 0.6, 0, H);
+      lg.addColorStop(0, "transparent");
+      lg.addColorStop(1, "#f97316");
+      g.fillStyle = lg;
+      g.fillRect(0, 0, W, H);
+    } else if (layer === "stars") {
+      g.globalAlpha = 0.9;
+      g.fillStyle = "#ffffff";
+      for (let i = 0; i < 140; i++) g.fillRect((i * 137.5) % W, (i * 71.3) % H, i % 7 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1);
+      g.globalAlpha = 0.8;
+      g.fillStyle = "#7c3aed";
+      g.beginPath();
+      g.arc(W * 0.12, H * 0.2, 26, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = "#c4b5fd";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.ellipse(W * 0.12, H * 0.2, 44, 10, -0.3, 0, Math.PI * 2);
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    // Stage pads under the fighters (old handheld battle staging)
+    const floor = th?.palette.floor ?? "#14532d";
+    for (const side of [1, 2] as const) {
+      const f = this.fighters[side];
+      g.fillStyle = floor;
+      g.globalAlpha = 0.85;
+      g.beginPath();
+      g.ellipse(f.baseX, f.baseY + f.size * 0.42, f.size * 0.75, f.size * 0.16, 0, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 0.5;
+      g.strokeStyle = accent;
+      g.lineWidth = 2;
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    this.bgDirty = false;
+  }
+
+  private drawParticles(g: CanvasRenderingContext2D): void {
+    const P = this.particles;
+    for (let pass = 0; pass < 2; pass++) {
+      const additive = pass === 1;
+      g.globalCompositeOperation = additive ? "lighter" : "source-over";
+      for (let i = 0; i < P.cap; i++) {
+        if (!P.alive[i]) continue;
+        const k = P.kind[i];
+        if (ADDITIVE.has(k) !== additive) continue;
+        const f = P.life[i] / P.max[i];
+        const ramp = this.ramps[P.ramp[i]] ?? this.ramps[0];
+        const color = ramp[Math.min(ramp.length - 1, Math.floor(f * (ramp.length - 1) + (k === Kind.Smoke ? 3 : 0)))];
+        const size = P.s0[i] + (P.s1[i] - P.s0[i]) * f;
+        g.globalAlpha = k === Kind.Smoke ? 0.35 * (1 - f) : 1 - f * f;
+        const x = P.x[i];
+        const y = P.y[i];
+        if (k === Kind.Glyph) {
+          g.fillStyle = color;
+          g.font = `${Math.max(6, size)}px monospace`;
+          g.fillText(i % 2 ? "1" : "0", x, y);
+        } else if (k === Kind.Square || k === Kind.Shard) {
+          g.save();
+          g.translate(x, y);
+          g.rotate(P.rot[i]);
+          g.drawImage(squareSprite(color), -size / 2, -size / 2, size, k === Kind.Shard ? size * 0.6 : size);
+          g.restore();
+        } else if (k === Kind.Spark) {
+          g.drawImage(glowSprite(color), x - size, y - size, size * 2, size * 2);
+        } else {
+          const spr = k === Kind.Flame || k === Kind.Smoke ? puffSprite(k === Kind.Smoke ? "#3f3f46" : color) : glowSprite(color);
+          g.drawImage(spr, x - size, y - size, size * 2, size * 2);
+        }
+      }
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+  }
+
+  private drawProjectile(g: CanvasRenderingContext2D, p: Projectile): void {
+    const [x, y] = p.pos;
+    const ramp = this.ramps[p.ramp] ?? this.ramps[0];
+    const s = p.size;
+    if (this.reduced) {
+      g.drawImage(glowSprite(ramp[1]), x - 8, y - 8, 16, 16);
+      return;
+    }
+    g.globalCompositeOperation = "lighter";
+    if (p.style === "bolt") {
+      g.strokeStyle = ramp[1];
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(p.from[0], p.from[1]);
+      const segs = 7;
+      for (let i = 1; i <= segs; i++) {
+        const k = i / segs;
+        g.lineTo(p.from[0] + (x - p.from[0]) * k + (i < segs ? (Math.random() - 0.5) * 26 : 0), p.from[1] + (y - p.from[1]) * k + (i < segs ? (Math.random() - 0.5) * 26 : 0));
+      }
+      g.stroke();
+      g.drawImage(glowSprite(ramp[0]), x - s, y - s, s * 2, s * 2);
+    } else if (p.style === "shard") {
+      g.save();
+      g.translate(x, y);
+      g.rotate(this.gameTime / 60);
+      g.fillStyle = ramp[1];
+      g.beginPath();
+      g.moveTo(0, -s);
+      g.lineTo(s * 0.5, 0);
+      g.lineTo(0, s);
+      g.lineTo(-s * 0.5, 0);
+      g.fill();
+      g.restore();
+      g.drawImage(glowSprite(ramp[2]), x - s, y - s, s * 2, s * 2);
+    } else if (p.style === "vortex") {
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = "#0b0618";
+      g.beginPath();
+      g.arc(x, y, s * 0.6, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = ramp[2];
+      g.lineWidth = 3;
+      g.beginPath();
+      g.ellipse(x, y, s, s * 0.35, this.gameTime / 200, 0, Math.PI * 2);
+      g.stroke();
+    } else if (p.style === "glyphs") {
+      g.fillStyle = ramp[1];
+      g.font = `${Math.max(8, s * 0.4)}px monospace`;
+      for (let i = 0; i < 10; i++) {
+        const a = i * 0.63 + this.gameTime / 120;
+        g.fillText(i % 2 ? "1" : "0", x + Math.cos(a) * s * 0.5, y + Math.sin(a) * s * 0.5);
+      }
+    } else {
+      if (p.style === "comet") {
+        g.drawImage(glowSprite(ramp[2]), x - s * 2.2, y - s * 0.6, s * 2.2, s * 1.2);
+      }
+      g.drawImage(glowSprite(ramp[2]), x - s * 1.6, y - s * 1.6, s * 3.2, s * 3.2);
+      g.drawImage(glowSprite(ramp[1]), x - s, y - s, s * 2, s * 2);
+      g.drawImage(glowSprite(ramp[0]), x - s * 0.55, y - s * 0.55, s * 1.1, s * 1.1);
+    }
+    g.globalCompositeOperation = "source-over";
+  }
+
+  private drawShield(g: CanvasRenderingContext2D, side: 1 | 2, sh: ShieldFx, now: number): void {
+    const f = this.fighters[side];
+    const left = sh.until - now;
+    if (left <= 0 && !sh.shattered) return;
+    const flicker = left < 2000 && Math.floor(left / 160) % 2 === 0 ? 0.35 : 1;
+    const w = f.size * 1.1;
+    const h = f.size * 0.86;
+    const cx = f.baseX;
+    const cy = f.baseY + f.size * 0.08;
+    g.save();
+    g.globalAlpha = 0.22 * flicker;
+    g.fillStyle = sh.color;
+    g.beginPath();
+    g.ellipse(cx, cy, w / 2, h / 2, 0, Math.PI, 0);
+    g.lineTo(cx + w / 2, cy + h * 0.32);
+    g.ellipse(cx, cy + h * 0.32, w / 2, h * 0.08, 0, 0, Math.PI);
+    g.fill();
+    g.globalAlpha = 0.85 * flicker;
+    g.strokeStyle = sh.color;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(cx, cy, w / 2, h / 2, 0, Math.PI, 0);
+    g.stroke();
+    // hex pattern, drifting in opacity
+    g.globalAlpha = (0.15 + 0.1 * Math.sin(now / 400)) * flicker;
+    g.lineWidth = 1;
+    for (let hx = -3; hx <= 3; hx++) {
+      for (let hy = -2; hy <= 0; hy++) {
+        const px = cx + hx * 18 + (hy % 2 ? 9 : 0);
+        const py = cy + hy * 15;
+        if (((px - cx) / (w / 2)) ** 2 + ((py - cy) / (h / 2)) ** 2 > 0.9) continue;
+        g.beginPath();
+        for (let i = 0; i < 6; i++) g.lineTo(px + 8 * Math.cos((i * Math.PI) / 3), py + 8 * Math.sin((i * Math.PI) / 3));
+        g.closePath();
+        g.stroke();
+      }
+    }
+    if (now < sh.crackUntil) {
+      g.globalAlpha = 1;
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 2;
+      for (let i = 0; i < 7; i++) {
+        const a = Math.PI + (i / 6) * Math.PI;
+        g.beginPath();
+        g.moveTo(cx, cy - h * 0.15);
+        g.lineTo(cx + Math.cos(a) * w * 0.48, cy + Math.sin(a) * h * 0.48);
+        g.stroke();
+      }
+    }
+    g.restore();
+  }
+
+  private draw(now: number): void {
+    if (this.bgDirty) this.drawBackground();
+    const g = this.fx.getContext("2d")!;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, this.W, this.H);
+    // decals on the floor
+    for (const d of this.decals) {
+      const k = (this.gameTime - d.t0) / d.dur;
+      if (k > 1) continue;
+      g.globalAlpha = 0.55 * (1 - k);
+      g.fillStyle = "#1c1917";
+      g.beginPath();
+      g.ellipse(d.x, d.y, d.r, d.r * 0.3, 0, 0, Math.PI * 2);
+      g.fill();
+      if (d.crack) {
+        g.strokeStyle = "#f97316";
+        g.lineWidth = 2;
+        for (let i = 0; i < 5; i++) {
+          g.beginPath();
+          g.moveTo(d.x, d.y);
+          g.lineTo(d.x + Math.cos(i * 1.3) * d.r * 1.3, d.y + Math.sin(i * 1.3) * d.r * 0.4);
+          g.stroke();
+        }
+      }
+    }
+    this.decals = this.decals.filter((d) => this.gameTime - d.t0 < d.dur);
+    g.globalAlpha = 1;
+    // fighters, status overlays and shields
+    for (const side of [1, 2] as const) {
+      const f = this.fighters[side];
+      f.draw(g, now);
+      const st = this.status[side];
+      if (st && this.gameTime < st.until && !this.reduced && this.quality !== "off") {
+        if (st.kind === "burning" && Math.random() < 0.6) {
+          this.particles.spawn(Kind.Flame, f.baseX + (Math.random() - 0.5) * f.size * 0.6, f.baseY + f.size * 0.2, 0, -60, 420, 9, 2, 0, -40, 1);
+        }
+        if (st.kind === "frozen") {
+          g.globalAlpha = 0.35;
+          g.drawImage(glowSprite("#67e8f9"), f.baseX - f.size * 0.5, f.baseY - f.size * 0.5, f.size, f.size);
+          g.globalAlpha = 1;
+        }
+        if (st.kind === "shocked" && Math.floor(this.gameTime / 60) % 2) {
+          g.globalAlpha = 0.4;
+          g.drawImage(glowSprite("#fde047"), f.baseX - f.size * 0.5, f.baseY - f.size * 0.5, f.size, f.size);
+          g.globalAlpha = 1;
+        }
+      }
+      if (f.dizzyUntil > this.gameTime && !this.reduced) {
+        g.fillStyle = "#fde047";
+        g.font = "12px monospace";
+        for (let i = 0; i < 3; i++) {
+          const a = this.gameTime / 200 + (i * Math.PI * 2) / 3;
+          g.fillText("★", f.anchors.head[0] + Math.cos(a) * 22, f.anchors.head[1] - 8 + Math.sin(a) * 6);
+        }
+      }
+      const sh = this.shields[side];
+      if (sh) this.drawShield(g, side, sh, now);
+      const ch = this.charge[side];
+      if (ch && !this.reduced) {
+        ch.size += (ch.target - ch.size) * 0.15;
+        const [mx, my] = f.anchors.muzzle;
+        const ramp = this.ramps[ch.ramp] ?? this.ramps[0];
+        const jitter = ch.unstable ? 1 + (Math.random() - 0.5) * 0.4 : 1 + (ch.mine ? 0 : 0.15 * Math.sin(now / 120));
+        const s = ch.size * jitter;
+        g.globalCompositeOperation = "lighter";
+        g.globalAlpha = ch.mine ? 1 : 0.55;
+        const col = ch.unstable && Math.floor(now / 33) % 2 ? "#ff00ff" : ramp[1];
+        g.drawImage(glowSprite(col), mx - s, my - s, s * 2, s * 2);
+        g.drawImage(glowSprite(ramp[0]), mx - s * 0.5, my - s * 0.5, s, s);
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = "source-over";
+      }
+    }
+    this.drawParticles(g);
+    for (const p of this.projectiles) this.drawProjectile(g, p);
+    // shockwave rings
+    for (const r of this.rings) {
+      const k = (this.gameTime - r.t0) / r.dur;
+      if (k > 1) continue;
+      g.globalAlpha = 1 - k;
+      g.strokeStyle = r.color;
+      g.lineWidth = r.width * (1 - k) + 1;
+      g.beginPath();
+      g.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * (1 - (1 - k) ** 2), 0, Math.PI * 2);
+      g.stroke();
+    }
+    this.rings = this.rings.filter((r) => this.gameTime - r.t0 < r.dur);
+    g.globalAlpha = 1;
+    // floating numbers and stamps
+    for (const t of this.texts) this.drawText(g, t);
+    this.texts = this.texts.filter((t) => this.gameTime - t.t0 < t.dur);
+    this.drawScreen(now);
+  }
+
+  private drawText(g: CanvasRenderingContext2D, t: FloatText): void {
+    const age = this.gameTime - t.t0;
+    let scale = 1;
+    let dy = 0;
+    let alpha = 1;
+    if (t.big) {
+      scale = age < 350 ? 4 - 3 * (1 - (1 - age / 350) ** 3) : 1;
+      if (age < 350 && age > 300) scale = 0.92;
+      alpha = age > t.dur - 300 ? (t.dur - age) / 300 : 1;
+    } else if (this.reduced) {
+      alpha = age < 200 ? age / 200 : age > t.dur - 300 ? (t.dur - age) / 300 : 1;
+    } else {
+      scale = age < NUMBER.popMs ? 1.5 * (age / NUMBER.popMs) : age < NUMBER.popMs + NUMBER.settleMs ? 1.5 - 0.5 * ((age - NUMBER.popMs) / NUMBER.settleMs) : 1;
+      dy = -NUMBER.rise * (1 - (1 - Math.min(1, age / NUMBER.riseMs)) ** 2);
+      alpha = age > t.dur - NUMBER.fadeMs ? Math.max(0, (t.dur - age) / NUMBER.fadeMs) : 1;
+    }
+    g.save();
+    g.globalAlpha = Math.max(0, alpha);
+    g.translate(t.big ? this.W / 2 : t.x, t.big ? this.H * 0.42 : t.y + dy);
+    g.scale(scale, scale);
+    g.font = `${t.size}px "Press Start 2P", monospace`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.lineJoin = "round";
+    g.lineWidth = Math.max(3, t.size / 9);
+    g.strokeStyle = t.stroke;
+    g.strokeText(t.text, 0, 0);
+    g.fillStyle = t.fill;
+    g.fillText(t.text, 0, 0);
+    if (t.strike) {
+      const w = g.measureText(t.text).width;
+      g.fillRect(-w / 2, -2, w, 4);
+    }
+    if (t.tag) {
+      g.font = `${Math.max(8, t.size * 0.4)}px "Press Start 2P", monospace`;
+      g.strokeText(t.tag, 0, t.size * 0.85);
+      g.fillStyle = t.tagColor ?? t.fill;
+      g.fillText(t.tag, 0, t.size * 0.85);
+    }
+    g.restore();
+  }
+
+  private drawScreen(now: number): void {
+    const g = this.screen.getContext("2d")!;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, this.W, this.H);
+    const W = this.W;
+    const H = this.H;
+    const fk = (now - this.flash.t0) / this.flash.dur;
+    if (fk < 1 && this.flash.a > 0) {
+      g.globalAlpha = this.flash.a * (1 - fk);
+      g.fillStyle = this.flash.color;
+      g.fillRect(0, 0, W, H);
+    }
+    const vk = (now - this.vignette.t0) / this.vignette.dur;
+    const lowPulse = this.lowHpPulse ? 0.12 + 0.08 * Math.sin(now / 400) : 0;
+    const va = Math.max(vk < 1 ? this.vignette.a * (1 - vk) : 0, lowPulse * this.flashScale);
+    if (va > 0) {
+      g.globalAlpha = 1;
+      const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+      vg.addColorStop(0, "rgba(239,68,68,0)");
+      vg.addColorStop(1, `rgba(239,68,68,${va.toFixed(3)})`);
+      g.fillStyle = vg;
+      g.fillRect(0, 0, W, H);
+    }
+    if (this.edgeGlow > 0.01) {
+      g.globalAlpha = this.edgeGlow * 0.5;
+      g.strokeStyle = "#fb923c";
+      g.lineWidth = 10;
+      g.strokeRect(0, 0, W, H);
+      this.edgeGlow *= 0.9;
+    }
+    if (now < this.speedLines.until && !this.reduced) {
+      g.globalAlpha = 0.5;
+      g.strokeStyle = "#ffffff";
+      g.lineWidth = 2;
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * Math.PI * 2 + i;
+        g.beginPath();
+        g.moveTo(W / 2 + Math.cos(a) * W * 0.3, H / 2 + Math.sin(a) * H * 0.3);
+        g.lineTo(W / 2 + Math.cos(a) * W, H / 2 + Math.sin(a) * H);
+        g.stroke();
+      }
+    }
+    if (now < this.aberration.until && !this.reduced && this.quality === "high") {
+      g.globalAlpha = 0.25;
+      g.globalCompositeOperation = "lighter";
+      g.drawImage(this.fx, this.aberration.px, 0, W, H);
+      g.drawImage(this.fx, -this.aberration.px, 0, W, H);
+      g.globalCompositeOperation = "source-over";
+    }
+    g.globalAlpha = 1;
+  }
+}

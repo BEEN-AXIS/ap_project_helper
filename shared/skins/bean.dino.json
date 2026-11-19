@@ -1,0 +1,31 @@
+{
+  "id": "bean.dino",
+  "kind": "avatar",
+  "name": "Dino Suit",
+  "rarity": "epic",
+  "unlock": {
+    "type": "ap",
+    "price": 1800
+  },
+  "palette": {
+    "body": "#16a34a",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "dino",
+      "anchor": "head"
+    },
+    {
+      "sprite": "tail",
+      "anchor": "back"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

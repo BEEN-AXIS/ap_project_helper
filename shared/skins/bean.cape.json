@@ -1,0 +1,27 @@
+{
+  "id": "bean.cape",
+  "kind": "avatar",
+  "name": "Cape",
+  "rarity": "rare",
+  "unlock": {
+    "type": "tier",
+    "tier": 3
+  },
+  "palette": {
+    "body": "$player",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [
+    {
+      "sprite": "cape",
+      "anchor": "back"
+    }
+  ],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}

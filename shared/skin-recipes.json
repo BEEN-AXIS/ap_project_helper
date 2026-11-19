@@ -1,0 +1,15 @@
+{
+  "_comment": "Renderer registry names a skin manifest may use. Adding a skin that reuses these is a JSON file only; a new name needs a TypeScript renderer and a test.",
+  "frame": ["terminal", "pixel-flame", "handheld", "azure", "ice-crystal", "circuit", "binary-rain", "void-rim", "molten", "gold-foil", "rgb-split"],
+  "particles": ["scanlines", "embers", "sparks", "snow", "bits", "motes", "coins", "glitch", "ash", "comets"],
+  "element": ["fire", "bluefire", "ice", "lightning", "void", "bits", "gold", "glitch", "magma", "handheld"],
+  "projectile": ["orb", "shard", "bolt", "comet", "vortex", "glyphs"],
+  "trail": ["flame", "mist", "arc", "bits", "dust", "drips", "rgb", "pixel"],
+  "impact": ["fire-burst", "shatter", "arc-burst", "implode-burst", "glyph-scatter", "coin-burst", "screen-tear", "lava-splash", "pixel-burst"],
+  "status": ["burning", "frozen", "shocked", "dimmed", "glitched", "sparkling", "blinking"],
+  "sfx": ["fire", "bluefire", "ice", "zap", "void", "bits", "gold", "glitch", "magma", "blip"],
+  "overlay": ["headband", "cape", "armor", "sword", "crown", "mask", "helmet", "dino", "tail"],
+  "layer": ["digits", "circuit", "marble", "hills", "lava", "stars"],
+  "rarity": ["common", "rare", "epic", "legendary", "mythic"],
+  "max_particle_rate": 12
+}

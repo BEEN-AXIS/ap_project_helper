@@ -1,0 +1,60 @@
+{
+  "id": "card.azure",
+  "kind": "card",
+  "name": "Azure Flame",
+  "rarity": "rare",
+  "unlock": {
+    "type": "tier",
+    "tier": 3
+  },
+  "palette": {
+    "bg": [
+      "#06142e",
+      "#0b2f63"
+    ],
+    "border": "#38bdf8",
+    "text": "#e0f2fe",
+    "accent": "#7dd3fc"
+  },
+  "frame": {
+    "style": "azure",
+    "animated": true
+  },
+  "idle": {
+    "particles": "embers",
+    "rate": 5
+  },
+  "hover": {
+    "particles": "sparks",
+    "glow": 1.5,
+    "tilt": 12
+  },
+  "flip": "ignite",
+  "consume": "launch",
+  "attack": {
+    "element": "bluefire",
+    "projectile": "orb",
+    "ramp": [
+      "#ffffff",
+      "#e0f7ff",
+      "#7dd3fc",
+      "#2563eb",
+      "#0b1730"
+    ],
+    "trail": "flame",
+    "impact": "fire-burst",
+    "status": "burning",
+    "number": {
+      "fill": "#e0f7ff",
+      "stroke": "#0b2f63"
+    },
+    "sfx": "bluefire"
+  },
+  "block": {
+    "dome": "#7dd3fc"
+  },
+  "reducedMotion": {
+    "frame": "static",
+    "idle": null
+  }
+}

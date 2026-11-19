@@ -125,6 +125,27 @@ async def claim_quest(quest_id: str, caller: Caller = Depends(current), ctx: App
     return await run_db(work)
 
 
+class ReportBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    match_id: str | None = Field(default=None, max_length=36)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/reports")
+async def report(body: ReportBody, caller: Caller = Depends(current)) -> dict:
+    from app.models import Report
+
+    def work(s: Session) -> dict:
+        m = s.get(Match, body.match_id) if body.match_id else None
+        target = None
+        if m is not None:
+            target = m.player2_profile_id if m.player1_profile_id == caller.profile_id else m.player1_profile_id
+        s.add(Report(reporter_id=caller.profile_id, match_id=body.match_id, target_profile_id=target, reason=body.reason))
+        return {"ok": True}
+
+    return await run_db(work)
+
+
 @router.get("/quests")
 async def quests(caller: Caller = Depends(current), ctx: AppContext = Depends(ctx_dep)) -> dict:
     return {"day": today_utc(), "quests": await run_db(lambda s: _quests(s, caller.profile_id, ctx))}

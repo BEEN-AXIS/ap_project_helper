@@ -1,0 +1,30 @@
+{
+  "id": "arena.volcano",
+  "kind": "arena",
+  "name": "Volcano",
+  "rarity": "epic",
+  "unlock": {
+    "type": "ap",
+    "price": 1500
+  },
+  "palette": {
+    "sky": [
+      "#1a0603",
+      "#451a03"
+    ],
+    "floor": "#7c2d12",
+    "accent": "#f97316",
+    "text": "#ffedd5"
+  },
+  "layers": [
+    "lava"
+  ],
+  "ambient": {
+    "particles": "ash",
+    "rate": 8
+  },
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

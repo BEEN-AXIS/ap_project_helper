@@ -932,6 +932,7 @@ class MatchActor:
 
         def tx(s: Session) -> None:
             finish_tx(s, self.m, o, self.cfg, payload, rewards)
+            payload["rewards"] = {str(n): r for n, r in rewards.items()}
             ev.data = payload
             for n, rev in reward_events.items():
                 rev.data = {"side": n, **rewards.get(n, {})}

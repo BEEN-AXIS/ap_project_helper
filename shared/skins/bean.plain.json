@@ -1,0 +1,21 @@
+{
+  "id": "bean.plain",
+  "kind": "avatar",
+  "name": "Plain Bean",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "palette": {
+    "body": "$player",
+    "eye": "#0f172a",
+    "outline": "#020617",
+    "shine": "#ffffff"
+  },
+  "overlays": [],
+  "victory": "jump",
+  "ko": "spin",
+  "reducedMotion": {
+    "idle": "static"
+  }
+}
