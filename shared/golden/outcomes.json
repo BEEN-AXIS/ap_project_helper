@@ -1,0 +1,14 @@
+{
+ "_comment": "final HP, hits landed and end reason with the expected winner and labels (section 5)",
+ "cases": [
+  {"name": "KO with hits", "end_reason": "ko", "p1": {"hp": 5000, "hits_landed": 3}, "p2": {"hp": 0, "hits_landed": 1}, "outcome": "win", "winner_side": 1, "labels": {"1": "victory", "2": "defeat"}},
+  {"name": "Self destruct", "end_reason": "ko", "p1": {"hp": 28000, "hits_landed": 0}, "p2": {"hp": 0, "hits_landed": 0, "ko_by_recoil": true}, "outcome": "win", "winner_side": 1, "labels": {"1": "hollow_victory", "2": "self_destruct"}},
+  {"name": "Recoil KO but winner had landed hits is a plain defeat", "end_reason": "ko", "p1": {"hp": 0, "hits_landed": 2, "ko_by_recoil": true}, "p2": {"hp": 9000, "hits_landed": 1}, "outcome": "win", "winner_side": 2, "labels": {"2": "victory", "1": "defeat"}},
+  {"name": "Timer, higher HP wins", "end_reason": "timer", "p1": {"hp": 1000, "hits_landed": 1}, "p2": {"hp": 2000, "hits_landed": 0}, "outcome": "win", "winner_side": 2, "labels": {"2": "hollow_victory", "1": "defeat"}},
+  {"name": "Timer, equal HP is a draw", "end_reason": "timer", "p1": {"hp": 15000, "hits_landed": 0}, "p2": {"hp": 15000, "hits_landed": 0}, "outcome": "draw", "winner_side": null, "labels": {"1": "draw", "2": "draw"}},
+  {"name": "Forfeit loses even with more HP", "end_reason": "forfeit", "p1": {"hp": 20000, "hits_landed": 2, "left": true}, "p2": {"hp": 3000, "hits_landed": 1}, "outcome": "win", "winner_side": 2, "labels": {"2": "victory", "1": "defeat"}},
+  {"name": "Disconnect auto-forfeit", "end_reason": "disconnect", "p1": {"hp": 20000, "hits_landed": 0}, "p2": {"hp": 3000, "hits_landed": 0, "left": true}, "outcome": "win", "winner_side": 1, "labels": {"1": "hollow_victory", "2": "defeat"}},
+  {"name": "Both gone is aborted", "end_reason": "disconnect", "p1": {"hp": 1, "hits_landed": 0, "left": true}, "p2": {"hp": 1, "hits_landed": 0, "left": true}, "outcome": "aborted", "winner_side": null, "labels": {}},
+  {"name": "Admin abort", "end_reason": "aborted", "p1": {"hp": 1, "hits_landed": 1}, "p2": {"hp": 1, "hits_landed": 1}, "outcome": "aborted", "winner_side": null, "labels": {}}
+ ]
+}

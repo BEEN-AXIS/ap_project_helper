@@ -1,0 +1,20 @@
+{
+ "_comment": "expected and actual text with the expected pass or fail for each checker (section 11)",
+ "cases": [
+  {"checker": "exact", "expected": "4\n", "actual": "4", "pass": true},
+  {"checker": "exact", "expected": "1 2\n3\n", "actual": "1 2   \n3\n\n\n", "pass": true},
+  {"checker": "exact", "expected": "1 2\n", "actual": "1  2\n", "pass": false},
+  {"checker": "exact", "expected": "a\nb\n", "actual": "a\r\nb\r\n", "pass": true},
+  {"checker": "exact", "expected": "a\n\nb\n", "actual": "a\nb\n", "pass": false},
+  {"checker": "tokens", "expected": "1 2\n3\n", "actual": "1\n2 3", "pass": true},
+  {"checker": "tokens", "expected": "1 2 3", "actual": "1 2", "pass": false},
+  {"checker": "float", "expected": "0.3333333333", "actual": "0.333333", "pass": true},
+  {"checker": "float", "expected": "1000000000.0", "actual": "1000000500.0", "pass": true},
+  {"checker": "float", "expected": "0.5", "actual": "0.51", "pass": false},
+  {"checker": "float", "expected": "YES 1.5", "actual": "YES 1.5000001", "pass": true},
+  {"checker": "float", "expected": "YES 1.5", "actual": "NO 1.5", "pass": false},
+  {"checker": "float", "expected": "1", "actual": "nan", "pass": false},
+  {"checker": "unordered_lines", "expected": "1 2\n3 4\n", "actual": "3 4\n1 2", "pass": true},
+  {"checker": "unordered_lines", "expected": "1 2\n3 4\n", "actual": "3 4\n1 2\n1 2", "pass": false}
+ ]
+}
