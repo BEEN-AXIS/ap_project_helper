@@ -1,0 +1,31 @@
+{
+  "id": "arena.sakura",
+  "kind": "arena",
+  "name": "Sakura Dojo",
+  "rarity": "epic",
+  "unlock": {
+    "type": "ap",
+    "price": 1800
+  },
+  "palette": {
+    "sky": [
+      "#1e1b4b",
+      "#831843"
+    ],
+    "floor": "#78350f",
+    "accent": "#f472b6",
+    "text": "#fdf2f8"
+  },
+  "layers": [
+    "sakura"
+  ],
+  "ambient": {
+    "particles": "petals",
+    "rate": 6
+  },
+  "music": "sakura",
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

@@ -78,6 +78,8 @@ export interface Reticle {
   t0: number;
   dur: number;
   color: string;
+  /** Slide with a moving point (a misfired strike drifting back onto its owner). */
+  follow?: () => [number, number];
 }
 
 const TAU = Math.PI * 2;

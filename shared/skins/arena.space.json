@@ -26,5 +26,6 @@
   "lighting": "soft",
   "reducedMotion": {
     "ambient": null
-  }
+  },
+  "music": "space"
 }

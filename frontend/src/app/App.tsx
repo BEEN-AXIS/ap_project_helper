@@ -6,6 +6,9 @@ import { useAuth } from "../state/auth";
 import { Link, navigate, RouterView, usePath } from "./router";
 import { SettingsModal } from "./SettingsModal";
 import { useFullscreen, useFullscreenShortcut } from "../lib/fullscreen";
+import { useNowPlaying } from "../audio/music";
+import { useMusicRoute } from "../audio/route";
+import { useSettings } from "../state/settings";
 
 function NotFound() {
   return (
@@ -43,11 +46,11 @@ function Nav() {
   ];
   if (profile.role === "admin") items.push(["/admin", "nav.admin"]);
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-3 border-b-2 border-slate-700 bg-slate-900/90 px-4 py-2 backdrop-blur">
+    <header className="sticky top-0 z-30 flex flex-wrap items-center gap-x-3 gap-y-1 border-b-2 border-slate-700 bg-slate-900/90 px-4 py-2 backdrop-blur">
       <Link to="/lobby" className="pixel text-xs text-green-400">
         ALGOARENA
       </Link>
-      <nav className="flex flex-1 flex-wrap gap-1" aria-label="Main">
+      <nav className="order-last flex w-full flex-wrap gap-1 md:order-none md:w-auto md:flex-1" aria-label="Main">
         {items.map(([to, key]) => (
           <Link key={to} to={to} className={`rounded px-3 py-1.5 text-sm ${path === to ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-800"}`}>
             {t(key)}
@@ -56,6 +59,7 @@ function Nav() {
       </nav>
       <SandboxBadge />
       <span className="pixel text-[10px] text-yellow-300">{profile.points ?? 0} AP</span>
+      <NowPlaying />
       <FullscreenButton />
       <button className="btn btn-ghost !min-h-8 !px-2 text-xs" onClick={() => setSettings(true)} aria-label={t("settings.title")}>
         ⚙
@@ -109,10 +113,34 @@ export function FullscreenButton({ className = "" }: { className?: string }) {
   );
 }
 
+/** The track that is playing, and a one-click music switch. */
+export function NowPlaying({ compact = false, testid = "now-playing" }: { compact?: boolean; testid?: string }) {
+  const track = useNowPlaying();
+  const on = useSettings((s) => s.s.music);
+  const set = useSettings((s) => s.set);
+  return (
+    <button
+      className={`group flex max-w-[14rem] items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/70 px-2.5 py-1 text-xs ${on ? "text-slate-200" : "text-slate-500"} hover:border-slate-500`}
+      onClick={() => set({ music: !on })}
+      aria-pressed={on}
+      title={on ? t("music.turn_off") : t("music.turn_on")}
+      data-testid={testid}
+    >
+      <span className={`inline-flex items-end gap-[2px] ${on ? "" : "opacity-40"}`} aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={`w-[3px] rounded-sm bg-green-400 ${on ? "eq-bar" : ""}`} style={{ height: on ? undefined : 4, animationDelay: `${i * 0.18}s` }} />
+        ))}
+      </span>
+      {!compact && <span className="hidden truncate sm:inline">{on ? track?.name ?? t("music.silence") : t("music.off")}</span>}
+    </button>
+  );
+}
+
 export function App() {
   const ready = useAuth((s) => s.ready);
   const authed = useAuth((s) => !!s.token);
   useFullscreenShortcut();
+  useMusicRoute(usePath());
   useEffect(() => {
     void loadRegistry();
   }, []);

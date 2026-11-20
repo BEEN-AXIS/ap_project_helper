@@ -45,6 +45,8 @@ export interface ArenaSkin {
   palette: { sky: string[]; floor: string; accent: string; text: string };
   layers: string[];
   ambient: { particles: string | null; rate: number };
+  /** The battle track that plays on this arena (audio/tracks.ts). */
+  music?: string;
   reducedMotion: Record<string, unknown>;
 }
 
@@ -118,6 +120,7 @@ export const DEFAULT_ARENA: ArenaSkin = {
   palette: { sky: ["#0f172a", "#052e16"], floor: "#14532d", accent: "#22c55e", text: "#dcfce7" },
   layers: ["digits"],
   ambient: { particles: "bits", rate: 10 },
+  music: "bit",
   reducedMotion: { ambient: null },
 };
 

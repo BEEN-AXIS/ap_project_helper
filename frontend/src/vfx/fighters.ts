@@ -141,7 +141,10 @@ export function spriteVariant(sprite: HTMLCanvasElement, variant: string): HTMLC
   return c;
 }
 
-export type Pose = "idle" | "windup" | "cast" | "hurt" | "block" | "ko" | "victory" | "flee";
+export type Pose = "idle" | "windup" | "cast" | "hurt" | "block" | "ko" | "victory" | "flee" | "panic";
+
+/** How the fighter moves when it attacks: set from the equipped weapon. */
+export type AttackStyle = "throw" | "shoot" | "draw" | "summon";
 
 export interface Anchors {
   muzzle: [number, number];
@@ -149,6 +152,26 @@ export interface Anchors {
   chest: [number, number];
   feet: [number, number];
 }
+
+type V2 = [number, number];
+/** Hand targets in the fighter's own frame: x forward, y down, in units of its size. */
+const HANDS: Record<string, { f: V2; b: V2 }> = {
+  idle: { f: [0.43, 0.1], b: [-0.43, 0.12] },
+  "windup:throw": { f: [0.32, 0.16], b: [-0.5, -0.42] },
+  "windup:shoot": { f: [0.5, 0.0], b: [0.32, 0.06] },
+  "windup:draw": { f: [0.54, -0.04], b: [0.02, -0.08] },
+  "windup:summon": { f: [0.3, -0.62], b: [-0.3, -0.62] },
+  "cast:throw": { f: [0.22, 0.2], b: [0.66, -0.02] },
+  "cast:shoot": { f: [0.46, 0.0], b: [0.3, 0.06] },
+  "cast:draw": { f: [0.56, -0.04], b: [-0.34, -0.12] },
+  "cast:summon": { f: [0.62, -0.12], b: [0.5, 0.06] },
+  hurt: { f: [-0.05, -0.5], b: [-0.56, -0.34] },
+  panic: { f: [0.16, -0.46], b: [-0.16, -0.46] },
+  block: { f: [0.48, -0.06], b: [0.4, 0.12] },
+  victory: { f: [0.36, -0.6], b: [-0.36, -0.6] },
+  flee: { f: [-0.5, 0.0], b: [0.3, 0.0] },
+  ko: { f: [0.4, 0.2], b: [-0.4, 0.22] },
+};
 
 /** One fighter: position, pose timeline and per-frame anchors in arena coordinates. */
 export class Fighter {
@@ -176,6 +199,12 @@ export class Fighter {
   time = 0;
   shieldColor = "#4ade80";
   victoryJumps = 0;
+  style: AttackStyle = "throw";
+  /** 0.8..1.25: each player's battle cry has its own pitch. */
+  voicePitch = 1;
+  glove = "#f8fafc";
+  /** Hands in the fighter's frame (eased toward the pose targets each step). */
+  hands: { f: V2; b: V2 } = { f: [...HANDS.idle.f] as V2, b: [...HANDS.idle.b] as V2 };
   anchors: Anchors = { muzzle: [0, 0], head: [0, 0], chest: [0, 0], feet: [0, 0] };
 
   setPose(pose: Pose, durMs = 0, knock = 0): void {
@@ -190,6 +219,18 @@ export class Fighter {
     return 32 * this.scale;
   }
 
+  /** The hand that holds the weapon: the throwing hand winds up behind the head. */
+  private activeHand(): "f" | "b" {
+    return this.style === "throw" && this.pose === "windup" ? "b" : "f";
+  }
+
+  /** A hand's position in arena coordinates. */
+  handAt(which: "f" | "b"): [number, number] {
+    const s = this.size;
+    const h = this.hands[which];
+    return [this.baseX + this.offsetX + this.facing * h[0] * s * this.sx, this.baseY + this.offsetY + h[1] * s * this.sy];
+  }
+
   update(dtMs: number, frozen: boolean): void {
     this.time += frozen ? 0 : dtMs;
     if (!frozen) this.poseT += dtMs;
@@ -201,31 +242,79 @@ export class Fighter {
     let sx = 1 + 0.02 * bob;
     let sy = 1 - 0.02 * bob;
     let rot = 0;
+    let key = "idle";
+    let shake = 0;
     switch (this.pose) {
       case "windup":
-        sy = 1 - 0.12 * p;
-        sx = 1 + 0.06 * p;
-        ox = -14 * this.facing * p;
+        key = `windup:${this.style}`;
+        if (this.style === "summon") {
+          oy = -22 * p + 3 * bob; // rises off the floor as the power gathers
+          sy = 1 + 0.08 * p;
+          sx = 1 - 0.04 * p;
+          shake = 1.2 * p;
+        } else if (this.style === "throw") {
+          sy = 1 - 0.1 * p;
+          sx = 1 + 0.05 * p;
+          ox = -16 * this.facing * p;
+          rot = -0.14 * this.facing * p; // leans back
+        } else if (this.style === "draw") {
+          ox = -10 * this.facing * p;
+          rot = -0.06 * this.facing * p;
+          shake = 0.6 * p; // the string trembles at full draw
+        } else {
+          sy = 1 - 0.06 * p;
+          ox = -6 * this.facing * p;
+        }
         break;
       case "cast": {
+        key = `cast:${this.style}`;
         const k = t < 120 ? t / 120 : Math.max(0, 1 - (t - 120) / 180);
-        sx = 1 + 0.1 * k;
-        sy = 1 + 0.1 * k;
-        ox = 30 * this.facing * k;
-        if (t > 300) this.pose = "idle";
+        if (this.style === "summon") {
+          const land = t < 90 ? 1 - t / 90 : 0;
+          oy = -22 * land;
+          sy = 1 - 0.12 * k;
+          sx = 1 + 0.1 * k;
+        } else if (this.style === "shoot") {
+          ox = -12 * this.facing * k; // recoil kicks the shooter back
+          sx = 1 + 0.04 * k;
+        } else if (this.style === "draw") {
+          ox = 6 * this.facing * k;
+          oy = -6 * k;
+        } else {
+          sx = 1 + 0.1 * k;
+          sy = 1 + 0.1 * k;
+          ox = 34 * this.facing * k; // lunges into the throw
+          rot = 0.16 * this.facing * k;
+        }
+        if (t > 320) this.pose = "idle";
         break;
       }
       case "hurt": {
+        key = "hurt";
         const k = t < 90 ? t / 90 : Math.max(0, 1 - (t - 90) / 400);
         ox = -this.knock * this.facing * k;
+        oy = -this.knock * 0.25 * k;
+        rot = -0.22 * this.facing * k;
+        sx = 1 - 0.08 * k;
+        sy = 1 + 0.08 * k;
         if (t > 490) this.pose = "idle";
         break;
       }
+      case "panic": {
+        key = "panic";
+        shake = 2.4;
+        sy = 1.04;
+        oy = -4 * Math.abs(Math.sin(this.time / 60));
+        if (this.poseDur && t > this.poseDur) this.pose = "idle";
+        break;
+      }
       case "block":
+        key = "block";
         sy = 0.96;
         ox = -6 * this.facing;
         break;
       case "ko": {
+        key = "ko";
         const k = Math.min(1, t / 600);
         rot = ((540 * Math.PI) / 180) * k * -this.facing;
         ox = -80 * this.facing * k;
@@ -235,6 +324,7 @@ export class Fighter {
         break;
       }
       case "victory": {
+        key = "victory";
         const cycle = (t % 500) / 500;
         const jump = Math.floor(t / 500) < 3 ? Math.sin(Math.PI * cycle) : 0;
         oy = -26 * jump;
@@ -244,23 +334,61 @@ export class Fighter {
         break;
       }
       case "flee": {
+        key = "flee";
         ox = -this.facing * (t / 600) * 400;
         this.alpha = Math.max(0, 1 - t / 700);
         break;
       }
+    }
+    if (shake && !frozen) {
+      ox += (Math.random() - 0.5) * shake * 2;
+      oy += (Math.random() - 0.5) * shake;
     }
     this.offsetX = ox;
     this.offsetY = oy;
     this.sx = sx;
     this.sy = sy;
     this.rot = rot;
+    // hands ease toward the pose: fast on attacks, lazy at rest
+    const target = HANDS[key] ?? HANDS.idle;
+    const fast = this.pose === "cast" || this.pose === "hurt" ? 34 : this.pose === "idle" ? 120 : 70;
+    const a = frozen ? 0 : 1 - Math.exp(-dtMs / fast);
+    const wave = this.pose === "victory" ? Math.sin(this.time / 90) * 0.06 : this.pose === "idle" ? bob * 0.02 : 0;
+    const trem = this.pose === "panic" ? 0.03 : 0;
+    for (const w of ["f", "b"] as const) {
+      const tg = target[w];
+      this.hands[w][0] += (tg[0] + (Math.random() - 0.5) * trem - this.hands[w][0]) * a;
+      this.hands[w][1] += (tg[1] + (w === "f" ? wave : -wave) + (Math.random() - 0.5) * trem - this.hands[w][1]) * a;
+    }
     const s = this.size;
     const cx = this.baseX + ox;
     const cy = this.baseY + oy;
-    this.anchors.muzzle = [cx + this.facing * s * 0.42, cy - s * 0.02];
+    const holding = this.pose === "windup" || this.pose === "cast";
+    this.anchors.muzzle = holding ? this.handAt(this.activeHand()) : [cx + this.facing * s * 0.42, cy - s * 0.02];
     this.anchors.head = [cx, cy - s * 0.42];
     this.anchors.chest = [cx, cy + s * 0.05];
-    this.anchors.feet = [cx, cy + s * 0.44];
+    this.anchors.feet = [this.baseX + ox, this.baseY + s * 0.44 + Math.max(0, oy)];
+  }
+
+  private drawHand(g: CanvasRenderingContext2D, which: "f" | "b"): void {
+    const s = this.size;
+    const h = this.hands[which];
+    const r = Math.max(3, s * 0.075);
+    const x = h[0] * s;
+    const y = h[1] * s;
+    g.fillStyle = "#020617";
+    g.beginPath();
+    g.arc(x, y, r + Math.max(1.5, s * 0.016), 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = this.grayscale ? "#cbd5e1" : this.glove;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+    // a knuckle line and a shine read as a glove at any size
+    g.fillStyle = "rgba(255,255,255,0.8)";
+    g.fillRect(Math.round(x - r * 0.45), Math.round(y - r * 0.55), Math.max(1, r * 0.35), Math.max(1, r * 0.35));
+    g.fillStyle = "rgba(15,23,42,0.35)";
+    g.fillRect(Math.round(x - r * 0.6), Math.round(y + r * 0.15), r * 1.2, Math.max(1, s * 0.012));
   }
 
   draw(g: CanvasRenderingContext2D, now: number): void {
@@ -272,12 +400,15 @@ export class Fighter {
     g.rotate(this.rot);
     g.scale(this.sx * this.facing, this.sy);
     g.imageSmoothingEnabled = false;
+    this.drawHand(g, "b");
     const base = this.grayscale ? spriteVariant(this.sprite, "gray") : this.soot > 0 ? spriteVariant(this.sprite, "dark") : this.sprite;
     g.drawImage(base, -s / 2, -s / 2, s, s);
     if (this.tint && now < this.tintUntil) {
       g.globalAlpha = 0.8 * this.alpha;
       g.drawImage(spriteVariant(this.sprite, this.tint), -s / 2, -s / 2, s, s);
+      g.globalAlpha = this.alpha;
     }
+    this.drawHand(g, "f");
     g.restore();
   }
 }

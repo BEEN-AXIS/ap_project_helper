@@ -124,7 +124,7 @@
   "features": {
     "bots": true, "emotes": true, "spectate": false, "rooms": false, "quests": true,
     "achievements": true, "streaks": true, "replays": true, "tutorial": false, "calibration": false,
-    "music": false, "ghost": false, "boss": false, "seasons": false, "team": false, "vfx_lab": true
+    "music": true, "ghost": false, "boss": false, "seasons": false, "team": false, "vfx_lab": true
   },
   "quality": {
     "high": { "max_particles": 2000, "dpr_cap": 2 },

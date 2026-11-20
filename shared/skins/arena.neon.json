@@ -1,0 +1,31 @@
+{
+  "id": "arena.neon",
+  "kind": "arena",
+  "name": "Neon City",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 900
+  },
+  "palette": {
+    "sky": [
+      "#2e1065",
+      "#86198f"
+    ],
+    "floor": "#3b0764",
+    "accent": "#e879f9",
+    "text": "#fdf4ff"
+  },
+  "layers": [
+    "neon"
+  ],
+  "ambient": {
+    "particles": "motes",
+    "rate": 3
+  },
+  "music": "neon",
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

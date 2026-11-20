@@ -1,6 +1,9 @@
 /* The battle screen driven by the stored public events, with a scrubber and speed control. */
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { music } from "../audio/music";
+import { trackFor } from "../audio/tracks";
+import { arenaSkin } from "../skins/registry";
 import { navigate } from "../app/router";
 import { ArenaView, type ArenaHandle } from "../features/battle/ArenaView";
 import { BattleLog } from "../features/log/BattleLog";
@@ -67,6 +70,11 @@ export default function Replay({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (data) seek(0);
   }, [data, seek]);
+  const theme = state?.stage?.theme;
+  useEffect(() => {
+    music.setIntensity(1);
+    if (theme) music.play(trackFor(arenaSkin(theme).music).id);
+  }, [theme]);
 
   // Play events in time order, scaled by speed.
   useEffect(() => {

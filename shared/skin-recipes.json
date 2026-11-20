@@ -23,7 +23,8 @@
     "coins",
     "glitch",
     "ash",
-    "comets"
+    "comets",
+    "petals"
   ],
   "element": [
     "fire",
@@ -104,7 +105,11 @@
     "marble",
     "hills",
     "lava",
-    "stars"
+    "stars",
+    "neon",
+    "snow",
+    "sakura",
+    "colosseum"
   ],
   "rarity": [
     "common",
@@ -129,5 +134,19 @@
     "burning",
     "shocked",
     "frozen"
+  ],
+  "music": [
+    "menu",
+    "title",
+    "bit",
+    "circuit",
+    "handheld",
+    "prestige",
+    "space",
+    "volcano",
+    "neon",
+    "frost",
+    "sakura",
+    "colosseum"
   ]
 }

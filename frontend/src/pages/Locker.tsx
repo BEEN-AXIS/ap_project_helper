@@ -2,13 +2,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArenaView, NO_EVENTS, type ArenaHandle } from "../features/battle/ArenaView";
 import { CardView } from "../features/hand/CardView";
-import { dummyState, fakeAttack } from "../features/locker/fake";
+import { dummyState, fakeAttack, fakeBackfire } from "../features/locker/fake";
+import { ArenaThumb } from "../features/battle/ArenaThumb";
+import { BeanPreview, WEAPON_ICON } from "../features/profile/kit";
+import { music } from "../audio/music";
+import { trackFor } from "../audio/tracks";
 import { t } from "../i18n";
 import { cmdId, TIER_TITLES } from "../lib/format";
 import { api, ApiError, loadMe } from "../net/api";
-import { allSkins, avatarSkin, onRegistry, RARITY_COLORS, type Skin, type WeaponSkin } from "../skins/registry";
+import { allSkins, onRegistry, RARITY_COLORS, type Skin, type WeaponSkin } from "../skins/registry";
 import { LEVEL_KEYS, LEVEL_STYLE } from "../features/hand/CardView";
-import { renderBean } from "../vfx/fighters";
 import { useAuth } from "../state/auth";
 
 interface Owned {
@@ -27,21 +30,6 @@ function unlockHint(o: Owned): string {
   if (u.type === "admin") return t("locker.unlock.admin");
   return u.map ? t("locker.default_for_map", { map: t(`map.${u.map}`) }) : t("locker.unlock.default");
 }
-
-function BeanPreview({ id, color }: { id: string; color: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    const g = c.getContext("2d")!;
-    g.imageSmoothingEnabled = false;
-    g.clearRect(0, 0, c.width, c.height);
-    g.drawImage(renderBean(avatarSkin(id), color), 0, 0, c.width, c.height);
-  }, [id, color]);
-  return <canvas ref={ref} width={128} height={128} className="sprite h-32 w-32" aria-label={avatarSkin(id).name} />;
-}
-
-const WEAPON_ICON: Record<string, string> = { fireball: "🔥", spear: "🔱", gun: "🔫", lightning: "⚡", arrows: "🏹", shuriken: "✴️", laser: "🔆", meteor: "☄️" };
 
 function WeaponPanel({ w, shown, onPreview }: { w: WeaponSkin; shown: number | null; onPreview: (level: number) => void }) {
   return (
@@ -113,6 +101,20 @@ export default function Locker() {
       setErr(e instanceof ApiError ? e.message : String(e));
     }
   };
+  // Arenas play their own track while you browse them; everything else gets the lounge.
+  useEffect(() => {
+    music.setIntensity(1);
+    music.play(tab === "arena" && manifest?.kind === "arena" ? trackFor(manifest.music).id : "menu");
+  }, [tab, manifest]);
+  /** The selected weapon's misfire on the dummy: it turns round and hits its owner. */
+  const previewMisfire = () => {
+    const h = arena.current;
+    if (!h) return;
+    h.director.skipAll();
+    h.engine.clearEffects();
+    const level = shown ?? 1;
+    h.director.play(fakeBackfire(1, [1200, 3500, 6000, 12000][level], ["light", "heavy", "massive", "nuke"][level], 28000 - [1200, 3500, 6000, 12000][level], level));
+  };
   const testFire = () => arena.current?.director.play(fakeAttack({ attacker: 1, damage: 18000, cls: "heavy", crit: false, defenderHp: 10000 }));
   /** Play one difficulty form of the selected weapon on the dummy (never sent anywhere). */
   const previewLevel = (level: number) => {
@@ -162,8 +164,12 @@ export default function Locker() {
                   <div className="flex h-12 w-full items-center justify-center rounded text-2xl" style={{ background: `linear-gradient(120deg, ${m.palette.ramp[3]}, ${m.palette.ramp[1]})` }} aria-hidden>
                     {WEAPON_ICON[m.style] ?? "✦"}
                   </div>
+                ) : m?.kind === "arena" ? (
+                  <div className="h-16 w-full overflow-hidden rounded">
+                    <ArenaThumb arena={m} w={192} h={108} />
+                  </div>
                 ) : (
-                  <div className="h-12 w-full rounded" style={{ background: m?.kind === "card" ? `linear-gradient(160deg, ${m.palette.bg[0]}, ${m.palette.bg[1]})` : m?.kind === "arena" ? `linear-gradient(${m.palette.sky[0]}, ${m.palette.sky[1]})` : profile?.avatar_color }} />
+                  <div className="h-12 w-full rounded" style={{ background: m?.kind === "card" ? `linear-gradient(160deg, ${m.palette.bg[0]}, ${m.palette.bg[1]})` : profile?.avatar_color }} />
                 )}
                 <div className="mt-2 truncate text-sm font-bold">{m?.name ?? o.id}</div>
                 <div className="text-[10px] uppercase" style={{ color: RARITY_COLORS[m?.rarity ?? "common"] }}>
@@ -185,7 +191,7 @@ export default function Locker() {
             subscribe={NO_EVENTS}
             onReady={(h) => {
               arena.current = h;
-              if (tab === "weapon") window.setTimeout(() => previewLevel(1), 500);
+              if (tab === "weapon") window.setTimeout(() => !h.director.busy && previewLevel(1), 500); // unless you already asked for something
             }}
             showHud={false}
           />
@@ -196,7 +202,23 @@ export default function Locker() {
             <CardView card={{ slot: 0, tier: 4, pending: false, problem: { slug: "max-xor-pair", title: "Max XOR Pair", tier: 4, biome: "bit", tags: [] }, preview: { damage: 39200, recoil: 8400, tier_diff: -2, scenario: "ambitious", crit: true, dmg_pct: 140, recoil_pct: 60 } }} skinId={selected.id} playerTier={2} myHp={28000} oppHp={28000} oppShield={false} hasDraft={false} index={0} onOpen={() => {}} />
           </div>
         )}
-        {tab === "weapon" && manifest?.kind === "weapon" && <WeaponPanel w={manifest} shown={shown} onPreview={previewLevel} />}
+        {tab === "weapon" && manifest?.kind === "weapon" && (
+          <>
+            <WeaponPanel w={manifest} shown={shown} onPreview={previewLevel} />
+            <button className="btn btn-ghost w-full !min-h-9 text-xs" onClick={previewMisfire} data-testid="preview-misfire">
+              {t("locker.misfire_preview")}
+            </button>
+          </>
+        )}
+        {tab === "arena" && manifest?.kind === "arena" && (
+          <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm" data-testid="arena-track">
+            <span aria-hidden>♪</span>
+            <span className="flex-1">
+              <span className="font-bold">{trackFor(manifest.music).name}</span>
+              <span className="ml-2 text-xs text-slate-400">{trackFor(manifest.music).mood}</span>
+            </span>
+          </div>
+        )}
         {tab === "avatar" && selected && (
           <div className="flex justify-center">
             <BeanPreview id={selected.id} color={profile?.avatar_color ?? "#3b82f6"} />

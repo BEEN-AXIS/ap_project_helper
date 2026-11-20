@@ -23,6 +23,7 @@ from app.engine.finish import today_utc
 from app.models import Match, Profile, QuestProgress, RatingHistory, Submission, utcnow
 from app.services.judging import run_samples
 from app.services.profiles import profile_private, profile_public
+from app.services.stats import player_stats
 
 router = APIRouter(tags=["players"])
 
@@ -184,6 +185,7 @@ async def public_profile(username: str, caller: Caller = Depends(current), ctx: 
                                 "at": h.created_at.isoformat()} for h in reversed(hist)]
         d["matches"] = [match_brief(m, p.id) for m in matches]
         d["accuracy"] = {"accepted": accepted, "judged": total}
+        d["stats"] = player_stats(s, p, ctx.cfg, ctx.problems.by_id)
         return d
 
     return await run_db(work)

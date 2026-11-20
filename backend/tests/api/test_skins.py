@@ -9,9 +9,9 @@ import json
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app.core.config import load_game_config_file
 from app.core.db import get_engine
 from app.models import Profile
-from app.core.config import load_game_config_file
 from app.skins.registry import RECIPES, load_registry, validate
 from tests.api.test_api import H, client, signup  # noqa: F401  (fixture)
 

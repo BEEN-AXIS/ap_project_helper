@@ -14,7 +14,15 @@ import { prefersReducedMotion, useSettings } from "../../state/settings";
 import { Director } from "../../vfx/director";
 import { Engine, HpBarController, type Quality } from "../../vfx/engine";
 import { renderBean } from "../../vfx/fighters";
+import { STYLE_OF } from "../../vfx/misfire";
 import { tierColor } from "../../lib/format";
+
+/** Each player's battle cry has its own pitch, from their name (0.8..1.25). */
+export function voicePitch(name: string): number {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return 0.8 + (h % 1000) / 2222;
+}
 
 /** For previews that receive no server events. */
 export const NO_EVENTS = (): (() => void) => () => undefined;
@@ -30,6 +38,8 @@ interface Props {
   subscribe: (fn: (msg: ServerMessage, before: BattleState, after: BattleState) => void) => () => void;
   onReady?: (h: ArenaHandle) => void;
   showHud?: boolean;
+  /** Move the fighters right (0..0.4) to leave room for text on the left. */
+  stageShift?: number;
 }
 
 function useTick(ms: number): number {
@@ -108,7 +118,7 @@ function HpBox({ p, isMe, refs, compact }: { p: PlayerState; isMe: boolean; refs
   );
 }
 
-export function ArenaView({ state, compact, subscribe, onReady, showHud = true }: Props) {
+export function ArenaView({ state, compact, subscribe, onReady, showHud = true, stageShift = 0 }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const bg = useRef<HTMLCanvasElement>(null);
   const fx = useRef<HTMLCanvasElement>(null);
@@ -221,15 +231,19 @@ export function ArenaView({ state, compact, subscribe, onReady, showHud = true }
     e.you = you;
     for (const side of [1, 2] as Side[]) {
       const p = state.players[side];
-      e.fighters[side].sprite = renderBean(avatarSkin(p.skins?.avatar), String(p.skins?.color ?? "#3b82f6"));
-      if (p.hp === 0 && state.status !== "live") e.fighters[side].grayscale = true;
+      const f = e.fighters[side];
+      f.sprite = renderBean(avatarSkin(p.skins?.avatar), String(p.skins?.color ?? "#3b82f6"));
+      f.voicePitch = voicePitch(p.name ?? String(side));
+      f.style = STYLE_OF[weaponLook(p.skins?.weapon, p.skins?.card).style] ?? "throw";
+      if (p.hp === 0 && state.status !== "live") f.grayscale = true;
     }
     e.setTheme(arenaSkin(state.stage?.theme));
+    e.stageShift = stageShift;
     e.layout();
     e.resize();
     syncHp(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [you, p1?.skins?.avatar, p2?.skins?.avatar, p1?.name, p2?.name, state.stage?.theme, regTick, !!state.players, compact]);
+  }, [you, p1?.skins?.avatar, p2?.skins?.avatar, p1?.skins?.weapon, p2?.skins?.weapon, p1?.name, p2?.name, state.stage?.theme, regTick, !!state.players, compact, stageShift]);
 
   useEffect(() => {
     const e = engineRef.current;

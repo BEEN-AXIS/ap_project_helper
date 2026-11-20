@@ -45,8 +45,6 @@ export const INTENSITY: Record<
 };
 
 export const BACKFIRE_EXPLOSION: Record<DamageClass, number> = { light: 300, heavy: 450, massive: 650, nuke: 900 };
-export const BACKFIRE_DESTABILISE_MS = 350;
-export const BACKFIRE_IMPLODE_MS = 120;
 
 export const CRIT = { slowmo: [0.5, 150] as [number, number], color: "#fde047" };
 export const KO = { hitStop: 200, slowmo: [0.25, 900] as [number, number], zoom: 1.25, zoomMs: 400, speedLines: 24, speedLinesMs: 300, aberration: 4, aberrationMs: 300, spinDeg: 540, spinMs: 600, shards: 32, confetti: 120, textMs: 350, holdMs: 1200, wipeAfterMs: 2800 };

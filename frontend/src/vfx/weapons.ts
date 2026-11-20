@@ -722,3 +722,6 @@ const meteor: WeaponFx = {
 };
 
 export const WEAPONS: Record<WeaponStyle, WeaponFx> = { fireball, spear, gun, lightning, arrows, shuriken, laser, meteor };
+
+/** The shared effect kit, for the misfires in misfire.ts. */
+export const kit = { r, n, pick, feet, fromSide, hover, jitter, debris, dust, streaks, embers, fireBall, pillar, rings, smokeColumn, shells, volley, aim, RAMPS };

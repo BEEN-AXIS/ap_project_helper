@@ -13,7 +13,8 @@ export interface Profile {
   losses: number;
   draws: number;
   avatar_color: string;
-  equipped: { card: string; avatar: string; arena: string | null };
+  equipped: { card: string; avatar: string; arena: string | null; weapon?: string };
+  counters?: Record<string, number>;
   badges: string[];
   points?: number;
   settings?: Record<string, unknown>;

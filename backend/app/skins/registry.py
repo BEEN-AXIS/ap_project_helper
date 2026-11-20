@@ -110,6 +110,11 @@ def validate(m: dict[str, Any], recipes: dict[str, Any], filename: str | None = 
                 errs.append(f"{sid}: unknown layer {layer}")
         if float((m.get("ambient") or {}).get("rate", 0)) > recipes["max_particle_rate"]:
             errs.append(f"{sid}: ambient particle rate over the limit")
+        amb = (m.get("ambient") or {}).get("particles")
+        if amb is not None and amb not in recipes["particles"]:
+            errs.append(f"{sid}: unknown ambient.particles {amb!r}")
+        if "music" in m and m["music"] not in recipes.get("music", []):
+            errs.append(f"{sid}: unknown music track {m['music']!r}")
         for sky in pal.get("sky", []):
             if contrast(pal["text"], sky) < 4.5:
                 errs.append(f"{sid}: text contrast on {sky} is under 4.5")

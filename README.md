@@ -2,7 +2,9 @@
 
 A real-time 1v1 coding battle. Two players get the same hand of four problem cards. Solving a card fires an attack whose damage depends on how hard the problem is for you; a wrong answer backfires on your own HP. First to zero loses. A Codeforces-style rating ladder sets your tier, and your tier sets your HP, your damage and which problems you are dealt.
 
-Every attack is drawn with the weapon you equip: fireball, spear, gun, lightning, longbow, shuriken, laser cannon or meteor. Each weapon has four forms, one per card difficulty (easy, normal, medium, tough), from a single shot to a screen-filling finisher.
+Every attack is drawn with the weapon you equip: fireball, spear, gun, lightning, longbow, shuriken, laser cannon or meteor. Each weapon has four forms, one per card difficulty (easy, normal, medium, tough), from a single shot to a screen-filling finisher. A wrong answer is a **misfire**: the weapon leaves your hand, turns round and hits you (the arrow flips back, the shuriken boomerangs, the rocket loops).
+
+Fighters throw, shoot, draw bows and summon storms with their own battle cries. Battles happen in ten animated arenas, and **every arena has its own music**, composed in code (no audio files) and building up when someone's HP runs low. Menus get a lo-fi lounge track.
 
 The server is the only authority. Clients send intentions (submit this code for slot 2, raise a Block); the server judges, resolves damage, writes the event to the database and only then broadcasts it. Nothing a client sends can set an HP, a rating or a result.
 
@@ -25,6 +27,22 @@ Each row is one difficulty (easy, normal, medium, tough); the columns show the w
 | ![Lightning forms](docs/img/weapon-lightning.jpg) | ![Meteor forms](docs/img/weapon-meteor.jpg) |
 
 ![Weapons locker](docs/img/locker-weapons.png)
+
+### Misfires
+
+A wrong answer turns your own weapon against you. Rows: an easy arrow (out, stall, flip, back), an easy shuriken (a boomerang), a tough rocket (loses its lock, loops round); columns run left to right in time.
+
+![Misfires](docs/img/misfires.jpg)
+
+### Arenas and music
+
+Binary Rain, Circuit Grid, Green Plains, Marble Hall, Deep Space, Volcano, Neon City, Frozen Peak, Sakura Dojo and the Cyber Colosseum. Each has a still layer (sky, scenery, floor) and a live one (code rain, pulses on circuit traces, an aurora, swaying lanterns, a crowd that jumps when a hit lands), and its own battle track: chiptune, techno, a handheld gallop, a baroque fugue, ambient, metal, outrun, crystalline, taiko and koto, a stadium anthem.
+
+![Arenas](docs/img/arenas.jpg)
+
+| Home | Profile |
+|---|---|
+| ![Home](docs/img/home.jpg) | ![Profile](docs/img/profile.jpg) |
 
 ---
 
@@ -58,6 +76,8 @@ make dev       # API on :8000 with auto-reload + Vite on :5173
 Open http://127.0.0.1:5173 and sign in as `alice` / `alice-pass` (also `bob` / `bob-pass`, `admin` / `admin-pass`), or sign up.
 
 **Full screen:** the ⛶ button in the top bar or the **F** key (outside text fields); Esc or F again leaves it.
+
+**Music** starts with your first click (browsers block sound until then). The ♪ chip in the top bar shows the track and switches music on or off; **Settings** has the music volume. Each map card on the home page has a ▶ button to hear its arena's track, and the Locker plays an arena's track while you look at it.
 
 `make dev` waits for the API to answer before starting the web app, and stops both on Ctrl-C (or as soon as either one stops). If port 8000 or 5173 is taken it uses the next free one and says which process holds the port, so a server left over from an earlier run is easy to find; `API_PORT=9000 make dev` picks ports yourself.
 
@@ -196,7 +216,7 @@ cp_battle/
   shared/                 one source of truth for both sides
     game-config.json      every tunable number (tiers, damage, timers, judge limits, economy, flags…)
     golden/               test vectors: damage, rating, hands, outcomes, checkers, reducer
-    skins/                33 manifests (card.*, weapon.*, bean.*, arena.*), drawn procedurally
+    skins/                37 manifests (card.*, weapon.*, bean.*, arena.*), drawn procedurally
     skin-recipes.json     the particle/impact recipes a manifest may name
   backend/
     app/
@@ -209,7 +229,7 @@ cp_battle/
       judge/              runner protocol, docker/subprocess/judge0/fake runners, pool, checkers,
                           harness/ (run_tests.py, limit_exec.py), Dockerfile.judge
       skins/              manifest registry + validation, unlocks, shop
-      services/           judging glue, problem cache, profiles
+      services/           judging glue, problem cache, profiles, stats (career numbers for home and profiles)
       seed.py  seed_check.py
     seed/                 catalog.py, gen_tests.py, solutions/, brute/, problems/*.json (17 problems)
     alembic/              migrations (0001_initial is the full schema)
@@ -218,15 +238,18 @@ cp_battle/
     src/
       app/                router (lazy pages), settings modal
       pages/              Landing Auth Lobby Queue Battle Result Locker Leaderboard Profile Practice Replay Admin VfxLab
-      features/           battle/ editor/ hand/ log/ locker/
+      features/           battle/ editor/ hand/ log/ locker/ profile/ (home and profile widgets)
       vfx/                engine (particle pool, camera, HP bars), director (timed shows), weapons (8 weapons x 4
-                          difficulty forms), arsenal (projectile shapes, beams, held weapons), fighters, particles, timings
-      audio/              WebAudio synth + sfx (no audio files)
+                          difficulty forms), misfire (each weapon turning round), backdrops (10 animated arenas),
+                          arsenal (projectile shapes, beams, held weapons), fighters (hands, poses), particles, timings
+      audio/              WebAudio synth, sfx and voices, music.ts (sequencer + instruments), tracks.ts (12 tracks
+                          written as data, melodies generated from a seed), route.ts (which track plays where)
       skins/              registry + validator
       net/                api.ts, ws.ts, protocol.generated.ts
       state/              battle.reducer.ts, battle.store.ts, auth, settings
       i18n/               en.json
-    tests/                reducer (golden match), director timings, weapons (all 32 forms), skin validator
+    tests/                reducer (golden match), director timings, weapons (all 32 forms), misfires (all 32),
+                          music (form, ranges, intensity, determinism), skin validator
   e2e/                    Playwright config + specs (two browser contexts)
   scripts/                load_test.py, make_types.py, dev.sh, ports.py, e2e_server.sh
   docs/PLAN.md            architecture, phases and gates, risks, decisions
@@ -240,17 +263,17 @@ cp_battle/
 |---|---|---|
 | Domain | `make test-backend` | All 25 attacker × problem tier pairs match the damage grid; the seven golden rating cases; hands, outcomes, checkers; property tests with Hypothesis when installed; `domain/` imports nothing impure (AST check) |
 | Engine | 〃 | Hit, backfire, block window, hints, rerolls, KO, timer, forfeit, disconnect and abort endings; persist-then-broadcast; idempotent `cmd_id`; reconnect with `last_seq`; in-flight submissions voided at match end |
-| API | 〃 | Auth (refresh rotation and reuse detection, WS tickets), the error envelope and its codes, rate limits (429), hidden tests never leave the server, no endpoint accepts a rating/HP/result |
+| API | 〃 | Auth (refresh rotation and reuse detection, WS tickets), the error envelope and its codes, rate limits (429), hidden tests never leave the server, no endpoint accepts a rating/HP/result; career stats (streaks from your side, maps, the 12-week window, totals) and the profile payload |
 | Judge | 〃 | Every verdict type, checkers, pool priorities and timeouts, and the sandbox escape suite (infinite loops, huge allocations, a gigabyte of output, fork bombs, network, host files, writes outside the job, concurrent jobs, stray processes). Network, host-file and outside-write cases are expected failures for the dev runner; Docker must pass them |
 | Migration | 〃 | `alembic/versions/0001_initial.py` builds exactly the schema the models declare |
-| Web | `make test-frontend` | The reducer reproduces server state at 11 checkpoints of a recorded match; director timings match the brief's tables; all 32 weapon forms land their main hit exactly on the impact step and throw nothing; skin manifests validate |
+| Web | `make test-frontend` | The reducer reproduces server state at 11 checkpoints of a recorded match; director timings match the brief's tables; all 32 weapon forms land their main hit exactly on the impact step and throw nothing; all 32 misfires turn round and hit their owner exactly when the recoil is applied; every arena has its own track, and every bar of every track is deterministic, in range and shaped by intensity; skin manifests validate |
 | Types and lint | `make typecheck`, `make lint` | Strict TypeScript and ESLint over the whole web app |
-| End to end | `make e2e` | Two browsers: queue, ready check, difficulty labels on every card, a hit, a block, a backfire, a KO, both result screens, VFX steps fired, zero console errors; equipping a weapon and previewing its four forms; a C++ card that opens with your saved template; full screen on and off; double submit creates one submission |
+| End to end | `make e2e` | Two browsers: queue, ready check, difficulty labels on every card, a hit, a block, a backfire, a KO, both result screens, VFX steps fired, zero console errors; equipping a weapon and previewing its four forms; a C++ card that opens with your saved template; full screen on and off; the home page, a profile, map music previews, an arena's track in the Locker and a misfire preview; double submit creates one submission |
 | C++ | `make test-backend` | Through the real compiler: accepted, wrong answer, compile errors (the compiler's message, temp paths removed), crashes, time and memory limits, output limit, a million-deep recursion, custom input, a missing compiler, the sandbox tripwire |
 | Content | `make seed-check` | Every reference solution, Python and C++, passes its tests within half the time limit; brute-force solutions TLE on the large tests |
 | Load | `make load` | 50 concurrent bot-vs-bot matches finish without errors |
 
-Last run: **233 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfailed** (documented limits of the dev subprocess runner); 60 web unit tests passed; the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
+Last run: **238 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfailed** (documented limits of the dev subprocess runner); 101 web unit tests passed; every track rendered offline peaks between −3 and −8 dBFS (no clipping); the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
 
 ---
 
@@ -269,10 +292,16 @@ Last run: **233 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfa
 2. Pick an unlock: `default`, `tier` (peak tier reached), `shop` (Arena Points price), `achievement` or `quest`.
 3. Recipe names must exist in `shared/skin-recipes.json`; text must reach 4.5:1 contrast. `make seed` validates every manifest strictly (so does `npm run skins:validate`), and the **VFX Lab** page lets you preview it.
 
+### An arena
+
+1. Add `shared/skins/arena.<name>.json`: a `palette` (two sky colours, floor, accent, text), a `layers` entry naming its scenery, `ambient` particles (`snow`, `petals`, `embers`, `bits`, `motes`, …), a `music` track and an `unlock`. Reusing a scenery and a track is JSON only.
+2. New scenery: add the name to `layer` in `shared/skin-recipes.json` and a `still` (drawn once) and `live` (drawn every frame, cheap) function in `frontend/src/vfx/backdrops.ts`. `pulse` (0..1) tells the live part how hard the last hit landed.
+3. A new track: add it to `TRACKS` in `frontend/src/audio/tracks.ts` (bpm, key, mode, chord loop, drum patterns as `x...x...` strings, instruments, a melody seed) and its id to `music` in the recipes. `tests/music.test.ts` checks it; `window.__music.measure(id, 20, 1)` in the browser console renders it offline and reports its peak and loudness.
+
 ### A weapon
 
 1. Add `shared/skins/weapon.<name>.json`: `style` (one of the eight in `shared/skin-recipes.json`), a name for each of the four forms in `levels` (easy, normal, medium, tough), a `palette` with `metal`, `accent` and a 5-colour `ramp`, `card_colors` (true to take the colours of the player's card skin, as Fireball does), a `status` effect left on the target (`none`, `burning`, `shocked`, `frozen`) and an `unlock`. A new look for an existing style is JSON only.
-2. A new style needs code: add it to `weapon_style` in the recipes and write its `windup`, `launch`, `impact` and `explode` in `frontend/src/vfx/weapons.ts`. The kit there (volleys, hovering orbs, debris, dust, embers, flame pillars, shock rings) and the engine's projectile shapes, beams, held weapons, ground spikes and slashes cover most ideas. `launch` must make the main hit arrive exactly `travel` ms later; `tests/weapons.test.ts` checks that for every style and form.
+2. A new style needs code: add it to `weapon_style` in the recipes and write its `windup`, `launch`, `impact` and `explode` in `frontend/src/vfx/weapons.ts`, its misfire in `frontend/src/vfx/misfire.ts` (the paths `uturn`, `boomerang`, `lobBack` and `bounce` turn anything round) and the fighter's motion in `STYLE_OF` there. The kit there (volleys, hovering orbs, debris, dust, embers, flame pillars, shock rings) and the engine's projectile shapes, beams, held weapons, ground spikes and slashes cover most ideas. `launch` must make the main hit arrive exactly `travel` ms later; `tests/weapons.test.ts` checks that for every style and form.
 3. `make seed` validates the manifest; preview it in **Locker → Weapons** or the VFX Lab.
 
 ### A language
@@ -333,7 +362,7 @@ Add an entry under `bots.personalities` in `shared/game-config.json` (`slot_weig
 | `quests[]`, `quests_per_day` | Daily quests (`id`, `kind`, `target`, `ap`) |
 | `achievements[]` | Badges and their thresholds |
 | `emotes` | The eight quick chat lines |
-| `features` | On: `bots`, `emotes`, `quests`, `achievements`, `streaks`, `replays`, `vfx_lab`. Off (not built): `spectate`, `rooms`, `tutorial`, `calibration`, `music`, `ghost`, `boss`, `seasons`, `team` |
+| `features` | On: `bots`, `emotes`, `quests`, `achievements`, `streaks`, `replays`, `music`, `vfx_lab`. Off (not built): `spectate`, `rooms`, `tutorial`, `calibration`, `ghost`, `boss`, `seasons`, `team` |
 | `quality` | Particle caps and DPR caps for `high`, `low`, `off` |
 | `bot_time_scale` | Default bot speed (1.0) |
 
@@ -370,13 +399,14 @@ Written honestly, from most to least important:
 1. **Vite, Vitest and the Playwright test runner still need a run on macOS.** `tsc --noEmit` (TypeScript 5.9.3) and ESLint 9 have run against the installed packages and report nothing. The three bundler-based tools load macOS-only native binaries, so they could not run in the build sandbox. Their jobs were covered there by equivalents: the app was bundled with esbuild and Tailwind's compiler, the unit tests ran under a small Vitest-compatible runner, and the end-to-end flows ran with the Playwright library in Chromium. To confirm on your Mac: `make test-frontend build e2e`.
 2. **Docker was not available here.** DockerRunner, `Dockerfile.judge`, the API `Dockerfile` and `docker compose up` are written to the brief but untested; the 11 Docker tests skip without a daemon. The subprocess runner and the full escape suite were tested.
 3. **Alembic was not installed here.** The baseline migration is generated from the models and checked by building it with a stand-in for `alembic.op`; a real `alembic upgrade head` has not been run. The server adopts an existing pre-migration SQLite file by stamping it. Postgres is supported through SQLModel but untested.
-4. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, music, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
-5. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).
-6. **No Codeforces API.** Codeforces does not publish hidden tests, so the server cannot judge its problems itself. The game ships 17 original problems in Codeforces style (bit manipulation, binary search, general), each with a reference solution, a brute force and generated tests.
-7. **Problem bounds were reduced** where the expected output would exceed the 64 KB output limit (for example Subset Parade n ≤ 11, Gray Ladder n ≤ 12).
-8. **Judge0Runner** is implemented against the Judge0 CE API but was not run against a live Judge0.
-9. **No accessibility audit with axe** and no measured frame rate on a reference laptop; reduced motion, keyboard shortcuts, a live region for the battle log and contrast checks on skins are in place.
-10. **Scaling:** one process owns all live matches (see Architecture).
+4. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
+5. **The music was checked by measurement, not by ear.** Every track was rendered offline in Chromium and measured (levels, no clipping, the arrangement visible in a spectrogram), but nobody has listened to it here. Instruments and tracks are plain data in `audio/tracks.ts` and `audio/music.ts` if a sound needs tuning.
+6. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).
+7. **No Codeforces API.** Codeforces does not publish hidden tests, so the server cannot judge its problems itself. The game ships 17 original problems in Codeforces style (bit manipulation, binary search, general), each with a reference solution, a brute force and generated tests.
+8. **Problem bounds were reduced** where the expected output would exceed the 64 KB output limit (for example Subset Parade n ≤ 11, Gray Ladder n ≤ 12).
+9. **Judge0Runner** is implemented against the Judge0 CE API but was not run against a live Judge0.
+10. **No accessibility audit with axe** and no measured frame rate on a reference laptop; reduced motion, keyboard shortcuts, a live region for the battle log and contrast checks on skins are in place.
+11. **Scaling:** one process owns all live matches (see Architecture).
 
 ---
 

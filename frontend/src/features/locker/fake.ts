@@ -25,8 +25,8 @@ export function fakeAttack(o: { attacker: 1 | 2; damage: number; cls: string; cr
   return { v: 1, type: "attack.landed", t, data: { attacker: o.attacker, defender: o.attacker === 1 ? 2 : 1, damage: o.damage, damage_class: o.cls, crit: o.crit, scenario: o.crit ? "ambitious" : "stretching", tier_diff: o.crit ? -2 : -1, problem: "preview", defender_hp: o.defenderHp, attacker_damage_dealt: o.damage, hits_landed: 1, level: o.level } } as any;
 }
 
-export function fakeBackfire(side: 1 | 2, recoil: number, cls: string, hpAfter: number): ServerMessage {
-  return { v: 1, type: "attack.backfire", t: Date.now(), data: { attacker: side, recoil, recoil_class: cls, verdict: "WA", problem: "preview", attacker_hp: hpAfter, crit: false, scenario: "on_level" } } as any;
+export function fakeBackfire(side: 1 | 2, recoil: number, cls: string, hpAfter: number, level?: number): ServerMessage {
+  return { v: 1, type: "attack.backfire", t: Date.now(), data: { attacker: side, recoil, recoil_class: cls, verdict: "WA", problem: "preview", attacker_hp: hpAfter, crit: false, scenario: "on_level", level } } as any;
 }
 
 export function fakeShield(side: 1 | 2): ServerMessage {

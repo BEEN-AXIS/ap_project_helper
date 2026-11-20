@@ -12,7 +12,8 @@ import type { ServerMessage } from "../net/protocol.generated";
 import type { CardSkin } from "../skins/registry";
 import type { Engine } from "./engine";
 import { Kind } from "./particles";
-import { BACKFIRE_DESTABILISE_MS, BACKFIRE_EXPLOSION, BACKFIRE_IMPLODE_MS, blockingLength, BURN_DELAY_MS, CRIT, INTENSITY, KO, nextClass, TIMING, type DamageClass } from "./timings";
+import { BACKFIRE_EXPLOSION, blockingLength, BURN_DELAY_MS, CRIT, INTENSITY, KO, nextClass, TIMING, type DamageClass } from "./timings";
+import { MISFIRE_TRAVEL, MISFIRES, STYLE_OF, TURN, type MisfireStrike } from "./misfire";
 import { DEFAULT_LOOK, LEVEL_EXTRA, levelOf, WEAPONS, type Strike, type WeaponLook } from "./weapons";
 
 export interface Step {
@@ -266,6 +267,7 @@ export class Director {
       at: 0,
       label: "windup",
       run: () => {
+        A.style = STYLE_OF[look.style] ?? "throw";
         A.setPose("windup", T.windup);
         const ch = fx.charge[att] ?? { size: 6, target: I.core, mine: att === this.ctx.you, ramp, unstable: 0 };
         ch.target = I.core;
@@ -284,6 +286,9 @@ export class Director {
         delete fx.charge[att];
         A.setPose("cast", 300);
         fx.zoomTo(1, 1);
+        sfx.cry(A.style, A.voicePitch, level);
+        if (A.style === "throw") sfx.swish(level);
+        if (A.style !== "shoot") setTimeout(() => sfx.step(), 110);
         weapon.launch(strike);
       },
     });
@@ -316,6 +321,8 @@ export class Director {
         D.setPose("hurt", 490, I.knockback);
         D.tint = "#ffffff";
         D.tintUntil = fx.now() + 80;
+        if (!lethal) sfx.ouch(D.voicePitch, cls === "massive" || cls === "nuke");
+        fx.pulse?.(["light", "heavy", "massive", "nuke"].indexOf(cls) + 1);
         applyHp();
         this.number(def, amount, cls, crit, false, skin);
         if (defenderIsMe) fx.damageVignette(I.vignette, 300 + 100 * ["light", "heavy", "massive", "nuke"].indexOf(cls));
@@ -372,18 +379,33 @@ export class Director {
     });
   }
 
+  /**
+   * A wrong answer: the attack goes out, turns round and hits its owner. The
+   * weapon winds up as usual, falters ("destabilise"), leaves the hand
+   * ("misfire"), turns ("turn": uh-oh, a red reticle on the attacker) and lands
+   * on the attacker ("explosion", where the recoil is applied).
+   */
   backfireShow(d: any): Show {
     const { fx } = this.ctx;
     const s = sideOf(d.attacker);
+    const o = other(s);
     const mine = s === this.ctx.you;
     const lethal = d.attacker_hp === 0;
     const cls: DamageClass = lethal ? "nuke" : d.recoil_class;
     const k = mine ? 1 : 0.6;
     const F = fx.fighters[s];
+    const O = fx.fighters[o];
     const skin = this.ctx.skin(s);
-    const ramp = fx.ramp(skin.attack.ramp);
+    const look = this.ctx.weapon?.(s) ?? { ...DEFAULT_LOOK, colors: skin.attack.ramp };
+    const weapon = WEAPONS[look.style] ?? WEAPONS.fireball;
+    const misfire = MISFIRES[look.style] ?? MISFIRES.fireball;
+    const ramp = fx.ramp(look.colors);
     const explode = BACKFIRE_EXPLOSION[cls];
     const reduced = this.ctx.reduced();
+    const level = levelOf(d.level, cls);
+    const extra = typeof d.level === "number" ? LEVEL_EXTRA[level] : LEVEL_EXTRA[0];
+    const windup = TIMING[cls].windup + extra.windup;
+    const travel = MISFIRE_TRAVEL[level];
     let hpApplied = false;
     const applyHp = () => {
       if (!hpApplied) {
@@ -391,46 +413,113 @@ export class Director {
         this.ctx.setHp(s, d.attacker_hp, true);
       }
     };
-    const t1 = reduced ? 0 : BACKFIRE_DESTABILISE_MS;
-    const t2 = t1 + (reduced ? 0 : BACKFIRE_IMPLODE_MS);
+    const verdictText = String(d.verdict === "WA" ? "WRONG ANSWER" : d.verdict === "TLE" ? "TIME LIMIT" : d.verdict === "RE" ? "RUNTIME ERROR" : d.verdict === "CE" ? "COMPILE ERROR" : d.verdict === "MLE" ? "MEMORY LIMIT" : d.verdict);
+    const number = () => fx.text({ text: `-${d.recoil.toLocaleString("en-US")}`, x: F.anchors.head[0], y: F.anchors.head[1], size: 26 * k + 6, fill: "#ef4444", stroke: "#450a0a", tag: mine ? "BACKFIRE!" : "MISFIRE!", tagColor: mine ? "#fca5a5" : "#cbd5e1" });
+
+    if (reduced) {
+      const steps: Step[] = [
+        { at: 0, label: "destabilise", run: () => mine && fx.text({ text: verdictText, x: F.anchors.head[0] + 40, y: F.anchors.head[1] - 40, size: 13, fill: "#f0abfc", stroke: "#4a044e", dur: 1000 }) },
+        { at: 200, label: "explosion", run: () => (applyHp(), number(), sfx.backfire()) },
+      ];
+      let length = 200 + explode;
+      if (lethal) {
+        steps.push(...this.koSteps(s, o, 300, true));
+        length = 200 + KO.wipeAfterMs;
+      }
+      return { name: lethal ? "self-destruct" : "backfire", steps, length, finalize: applyHp };
+    }
+
+    // The strike as it was meant (for the windup) and as it goes (back at its owner).
+    const base = { fx, level, cls, look, ramp, windup, blocked: false };
+    const meant: Strike = { ...base, A: F, D: O, att: s, def: o, travel: TIMING[cls].travel + extra.travel, warn: !mine, hit: () => [O.anchors.chest[0], O.anchors.chest[1]] };
+    const back: MisfireStrike = { ...base, A: F, D: F, O, att: s, def: s, travel, warn: mine, hit: () => [F.anchors.chest[0], F.anchors.chest[1]] };
+    const turnAt = windup + travel * (TURN[look.style] ?? 0.5);
+    const impactAt = windup + travel;
     const steps: Step[] = [
       {
         at: 0,
-        label: "destabilise",
+        label: "windup",
         run: () => {
-          const ch = fx.charge[s] ?? { size: 12, target: 16, mine, ramp, unstable: 1 };
-          ch.unstable = 1;
+          F.style = STYLE_OF[look.style] ?? "throw";
+          F.setPose("windup", windup);
+          const ch = fx.charge[s] ?? { size: 6, target: 14, mine, ramp, unstable: 0 };
+          ch.ramp = ramp;
           fx.charge[s] = ch;
-          sfx.crackle();
-          if (mine) fx.text({ text: String(d.verdict === "WA" ? "WRONG ANSWER" : d.verdict === "TLE" ? "TIME LIMIT" : d.verdict === "RE" ? "RUNTIME ERROR" : d.verdict === "CE" ? "COMPILE ERROR" : d.verdict === "MLE" ? "MEMORY LIMIT" : d.verdict), x: F.anchors.head[0] + 40, y: F.anchors.head[1] - 40, size: 13, fill: "#f0abfc", stroke: "#4a044e", dur: 1000 });
+          sfx.windup(windup, skin.attack.element);
+          weapon.windup(meant);
         },
       },
-      { at: t1, label: "implode", run: () => fx.charge[s] && (fx.charge[s]!.target = 2) },
       {
-        at: t2,
-        label: "explosion",
+        at: Math.round(windup * 0.55),
+        label: "destabilise",
+        run: () => {
+          const ch = fx.charge[s];
+          if (ch) ch.unstable = 1;
+          sfx.crackle();
+          fx.aberration = { until: fx.now() + 140, px: 2 };
+          if (mine) fx.text({ text: verdictText, x: F.anchors.head[0] + 40, y: F.anchors.head[1] - 40, size: 13, fill: "#f0abfc", stroke: "#4a044e", dur: 1400 });
+        },
+      },
+      {
+        at: windup,
+        label: "misfire",
         run: () => {
           delete fx.charge[s];
+          F.setPose("cast", 320);
+          sfx.cry(F.style, F.voicePitch, level);
+          sfx.misfire();
           const [mx, my] = F.anchors.muzzle;
+          fx.burst(Kind.Square, mx, my, 12, 150, 450, [5, 2], fx.ramp(["#ffffff", "#f0abfc", "#d946ef", "#701a75", "#2e1065"]), { drag: 2 });
+          misfire(back);
+        },
+      },
+      {
+        at: Math.round(turnAt),
+        label: "turn",
+        run: () => {
+          F.setPose("panic", impactAt - turnAt);
+          sfx.uhOh(F.voicePitch);
+          sfx.whistle((impactAt - turnAt) / 1000);
+          if (mine) sfx.lockOn(Math.min(0.5, (impactAt - turnAt) / 1000));
+          fx.text({ text: "!", x: F.anchors.head[0], y: F.anchors.head[1] - 46, size: 34, fill: "#fde047", stroke: "#7c2d12", dur: impactAt - turnAt + 200 });
+          fx.reticle({ x: F.anchors.feet[0], y: F.anchors.feet[1], r: 60, dur: impactAt - turnAt + 120, color: "#ef4444", follow: () => [F.anchors.feet[0], F.anchors.feet[1]] });
+        },
+      },
+      {
+        at: impactAt,
+        label: "explosion",
+        run: () => {
           const I = INTENSITY[cls];
-          fx.burst(Kind.Flame, mx, my, Math.round(I.burst * 0.6 * k), 220, explode, [I.core * 0.5, 3], ramp, { ay: -100 });
-          fx.burst(Kind.Smoke, mx, my, Math.round(I.smoke * k), 70, explode * 1.8, [8, 22], ramp, { ay: -30 });
-          F.setPose("hurt", 490, I.knockback * 0.6);
+          const [x, y] = F.anchors.chest;
+          fx.hitStop(lethal ? KO.hitStop : TIMING[cls].hitStop);
+          fx.flashWhite(I.flash * k);
+          fx.shake(I.shake[0] * k, I.shake[1], cls === "massive" || cls === "nuke");
+          fx.ring(x, y, I.shockwave * 0.8, 450, "#fecaca", 7);
+          fx.burst(Kind.Spark, x, y, Math.round(I.sparks * k), 480, 360, [4, 1], ramp, { drag: 3 });
+          weapon.impact(back);
+          weapon.explode(back);
+          F.setPose("hurt", 490, I.knockback * 0.9);
+          F.tint = "#ffffff";
+          F.tintUntil = fx.now() + 90;
           F.soot = 1;
-          setTimeout(() => (F.soot = 0), 1500);
-          if (cls !== "light") F.dizzyUntil = fx.gameTime + 1500;
-          fx.shake(I.shake[0] * k, I.shake[1] * k);
+          setTimeout(() => (F.soot = 0), 1800);
+          if (cls !== "light") F.dizzyUntil = fx.gameTime + 1800;
           applyHp();
           sfx.backfire();
-          fx.text({ text: `-${d.recoil.toLocaleString("en-US")}`, x: F.anchors.head[0], y: F.anchors.head[1], size: 26 * k + 6, fill: "#ef4444", stroke: "#450a0a", tag: mine ? "BACKFIRE!" : "fizzled!", tagColor: mine ? "#fca5a5" : "#cbd5e1" });
-          if (mine) fx.damageVignette(INTENSITY[cls].vignette);
+          sfx.impact(cls);
+          if (!lethal) sfx.ouch(F.voicePitch, cls !== "light");
+          number();
+          fx.pulse?.(["light", "heavy", "massive", "nuke"].indexOf(cls) + 1);
+          if (mine) fx.damageVignette(I.vignette);
+          const status = look.status;
+          if (status && TIMING[cls].burn) setTimeout(() => fx.setStatus(s, status, TIMING[cls].burn), BURN_DELAY_MS);
         },
       },
     ];
-    let length = t2 + explode;
+    let length = impactAt + explode;
     if (lethal) {
-      steps.push(...this.koSteps(s, other(s), t2 + 100, true));
-      length = t2 + KO.wipeAfterMs;
+      steps.push(...this.koSteps(s, o, impactAt + 100, true));
+      length = impactAt + KO.wipeAfterMs;
     }
     return { name: lethal ? "self-destruct" : "backfire", steps, length, finalize: applyHp };
   }
@@ -449,6 +538,7 @@ export class Director {
           fx.speedLines = { until: fx.now() + KO.speedLinesMs, t0: fx.now() };
           fx.aberration = { until: fx.now() + KO.aberrationMs, px: KO.aberration };
           L.setPose("ko", 1200);
+          sfx.koCry(L.voicePitch);
           fx.burst(Kind.Square, L.baseX, L.baseY, KO.shards, 340, 1400, [8, 6], fx.ramp(["#ffffff", "#e2e8f0", "#94a3b8", "#475569", "#1e293b"]), { ay: 900, drag: 0.3, bounceY: L.anchors.feet[1] + 10 });
         },
       },
@@ -458,6 +548,7 @@ export class Director {
         run: () => {
           fx.zoomTo(1, 600);
           W.setPose("victory", 1500);
+          sfx.cheer(W.voicePitch);
           fx.burst(Kind.Square, W.baseX, W.baseY - W.size * 0.6, KO.confetti, 360, 1800, [6, 5], fx.ramp(["#facc15", "#22c55e", "#3b82f6", "#a855f7", "#ef4444"]), { ay: 500, drag: 0.6 });
           fx.text({ text: "K.O.", x: 0, y: 0, size: Math.min(120, fx.width / 6), fill: "#fde047", stroke: "#7c2d12", big: true, dur: KO.textMs + KO.holdMs + 600, tag: selfDestruct ? "SELF DESTRUCT" : undefined, tagColor: "#fca5a5" });
           fx.shake(10, 300);

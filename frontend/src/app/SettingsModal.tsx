@@ -78,8 +78,9 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       <Row label={t("settings.volume")}>{slider("master")}</Row>
       <Row label={t("settings.effects")}>{slider("effects")}</Row>
       <Row label={t("settings.music")}>
-        <input type="checkbox" checked={s.music} onChange={(e) => set({ music: e.target.checked })} />
+        <input type="checkbox" checked={s.music} onChange={(e) => set({ music: e.target.checked })} data-testid="music-toggle" />
       </Row>
+      <Row label={t("settings.music_volume")}>{slider("musicVolume")}</Row>
       <Row label={t("settings.quality")}>
         <select className="rounded bg-slate-800 px-2 py-1" value={s.quality} onChange={(e) => set({ quality: e.target.value as Settings["quality"] })}>
           <option value="auto">{t("common.auto")}</option>

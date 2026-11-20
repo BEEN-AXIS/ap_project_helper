@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { navigate } from "../app/router";
+import { music } from "../audio/music";
+import { trackFor } from "../audio/tracks";
 import { synth } from "../audio/synth";
 import { ArenaView, type ArenaHandle } from "../features/battle/ArenaView";
 import { TopStrip } from "../features/battle/TopStrip";
@@ -13,6 +15,7 @@ import { GameSocket, type ConnState } from "../net/ws";
 import type { Side } from "../state/battle.reducer";
 import { onBattleEvent, serverNow, useBattle } from "../state/battle.store";
 import { useSettings } from "../state/settings";
+import { arenaSkin } from "../skins/registry";
 
 function statusLine(s: ReturnType<typeof useBattle.getState>["state"], conn: string): string {
   if (conn === "connecting") return t("battle.status.connecting");
@@ -53,6 +56,17 @@ export default function Battle({ params }: { params: { id: string } }) {
     const id = window.setTimeout(() => setFightBanner(false), 1200);
     return () => window.clearTimeout(id);
   }, [state.status, state.countdown]);
+  // Music: the arena's own track; calm in the countdown, driving when someone is low or time is short.
+  const theme = state.stage?.theme;
+  const tense = !!me && !!opp && (me.hp / me.maxHp < 0.3 || opp.hp / opp.maxHp < 0.3 || (state.clock.maxMs > 0 && state.clock.maxMs - state.clock.elapsedMs < 60_000));
+  useEffect(() => {
+    if (ended) {
+      music.play(null);
+      return;
+    }
+    music.setIntensity(state.status !== "live" ? 0 : tense ? 2 : 1);
+    music.play(trackFor(arenaSkin(theme).music).id);
+  }, [theme, state.status, tense, ended]);
   // Drafts are deleted when the match ends.
   useEffect(() => {
     if (!ended) return;

@@ -5,6 +5,8 @@ export interface Settings {
   master: number;
   effects: number;
   music: boolean;
+  musicVolume: number;
+  v?: number; // settings format; 2 turned music on by default
   quality: "auto" | "high" | "low" | "off";
   reducedMotion: "auto" | "on" | "off";
   shake: number;
@@ -22,7 +24,9 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   master: 0.7,
   effects: 0.8,
-  music: false,
+  music: true,
+  musicVolume: 0.6,
+  v: 2,
   quality: "auto",
   reducedMotion: "auto",
   shake: 1,
@@ -39,10 +43,20 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const KEY = "algoarena.settings";
 
+/** Earlier builds had no music, so a saved "music: off" was only the old default: turn it on once. */
+export function migrate(raw: Partial<Settings>): Settings {
+  const s = { ...DEFAULT_SETTINGS, ...raw } as Settings;
+  if ((raw.v ?? 1) < 2) {
+    s.music = true;
+    s.v = 2;
+  }
+  return s;
+}
+
 function load(): Settings {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
+    return raw ? migrate(JSON.parse(raw)) : DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -72,7 +86,7 @@ export const useSettings = create<SettingsStore>((set, get) => ({
   },
   hydrate: (server) => {
     if (!server || Object.keys(server).length === 0) return;
-    const next = { ...DEFAULT_SETTINGS, ...server, ...{} } as Settings;
+    const next = migrate(server);
     set({ s: next });
     applyDocumentSettings(next);
   },

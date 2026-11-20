@@ -8,6 +8,7 @@
  */
 import type { ArenaSkin } from "../skins/registry";
 import { Fighter } from "./fighters";
+import { drawLive, drawStill } from "./backdrops";
 import { drawBeam, drawProp, drawReticle, drawShape, drawSlash, drawSpikes, type Beam, type ProjectileShape, type Prop, type Reticle, type Slash, type Spikes } from "./arsenal";
 import { ADDITIVE, debrisSprite, glowSprite, Kind, noise, Particles, puffSprite, squareSprite } from "./particles";
 import { HPBAR, NUMBER } from "./timings";
@@ -45,6 +46,11 @@ export interface Projectile {
   grow?: number; // ms to swell from nothing to full size (charging orbs)
   metal?: string;
   accent?: string;
+  /** A custom flight path: k is the share of the flight done (0..1, after `ease`). Misfires use it to turn around. */
+  curve?: (k: number) => [number, number];
+  /** Override the drawn angle (tumbling spears): gets the share done and the direction of travel. */
+  angleAt?: (k: number, motion: number) => number;
+  face?: number; // the angle drawn this frame
 }
 
 interface FloatText {
@@ -210,7 +216,13 @@ export class Engine {
   private H = 400;
   private dpr = 1;
   theme: ArenaSkin | null = null;
+  /** Move both fighters right by this share of the width (banners with text on the left). */
+  stageShift = 0;
   private bgDirty = true;
+  private still: HTMLCanvasElement | null = null;
+  private stillShown = false;
+  private pulseT = -1e9;
+  private pulseLevel = 0;
   private ambientT = 0;
   onFrame: ((e: Engine) => void) | null = null;
 
@@ -246,6 +258,7 @@ export class Engine {
   }
 
   setTheme(theme: ArenaSkin): void {
+    if (this.theme?.id !== theme.id) this.particles.clear();
     this.theme = theme;
     this.bgDirty = true;
   }
@@ -264,9 +277,9 @@ export class Engine {
     const opp = this.fighters[this.you === 1 ? 2 : 1];
     me.scale = 5 * k * (this.W < 700 ? 0.8 : 1);
     opp.scale = 4 * k * (this.W < 700 ? 0.8 : 1);
-    me.baseX = this.W * 0.22;
+    me.baseX = this.W * (0.22 + this.stageShift);
     me.baseY = this.H * 0.66;
-    opp.baseX = this.W * 0.76;
+    opp.baseX = this.W * (0.76 + this.stageShift * 0.25);
     opp.baseY = this.H * 0.36;
     me.facing = 1;
     opp.facing = -1;
@@ -489,22 +502,27 @@ export class Engine {
         p.onStart?.();
       }
       const k = Math.min(1, age / p.dur);
-      const e = p.ease === "linear" ? k : p.ease === "out" ? 1 - (1 - k) ** 2 : k * k * k; // default: cubic ease-in
+      const ease = p.ease ?? (p.curve ? "linear" : "in");
+      const e = ease === "linear" ? k : ease === "out" ? 1 - (1 - k) ** 2 : k * k * k; // default: cubic ease-in
       const to = p.to();
       const dx = to[0] - p.from[0];
       const dy = to[1] - p.from[1];
-      const dist = Math.hypot(dx, dy);
-      // quadratic Bezier; the control point is raised by a share of the distance
-      const raise = p.path === "line" || p.path === "drop" ? 0 : p.path === "lob" ? 0.5 : 0.18;
-      const cx = p.from[0] + dx / 2;
-      const cy = p.from[1] + dy / 2 - dist * raise;
-      const u = 1 - e;
       const prev = p.pos;
-      p.pos = [u * u * p.from[0] + 2 * u * e * cx + e * e * to[0], u * u * p.from[1] + 2 * u * e * cy + e * e * to[1]];
+      if (p.curve) p.pos = p.curve(e);
+      else {
+        const dist = Math.hypot(dx, dy);
+        // quadratic Bezier; the control point is raised by a share of the distance
+        const raise = p.path === "line" || p.path === "drop" ? 0 : p.path === "lob" ? 0.5 : 0.18;
+        const cx = p.from[0] + dx / 2;
+        const cy = p.from[1] + dy / 2 - dist * raise;
+        const u = 1 - e;
+        p.pos = [u * u * p.from[0] + 2 * u * e * cx + e * e * to[0], u * u * p.from[1] + 2 * u * e * cy + e * e * to[1]];
+      }
       const mx = p.pos[0] - prev[0];
       const my = p.pos[1] - prev[1];
       if (Math.abs(mx) + Math.abs(my) > 0.01) p.angle = Math.atan2(my, mx);
       else if (p.angle === undefined) p.angle = Math.atan2(dy, dx);
+      p.face = p.angleAt ? p.angleAt(k, p.angle ?? 0) : p.angle;
       if (this.quality !== "off" && !this.reduced && p.trail > 0) {
         const n = Math.max(1, Math.round((p.trail * dt) / STEP));
         const back = (p.angle ?? 0) + Math.PI;
@@ -544,10 +562,20 @@ export class Engine {
     const every = 1000 / Math.max(0.5, th.ambient.rate);
     while (this.ambientT > every) {
       this.ambientT -= every;
+      const kindName = th.ambient.particles;
       const r = this.ramp([th.palette.accent, th.palette.accent, th.palette.text, th.palette.floor, th.palette.sky[0]]);
-      const kind = th.ambient.particles === "bits" ? Kind.Glyph : th.ambient.particles === "ash" ? Kind.Square : Kind.Glow;
-      const fall = th.ambient.particles === "comets" ? 0 : 1;
-      this.particles.spawn(kind, Math.random() * this.W, fall ? -10 : Math.random() * this.H * 0.4, th.ambient.particles === "comets" ? -120 : (Math.random() - 0.5) * 10, fall ? 30 + Math.random() * 40 : 20, 6000, kind === Kind.Glyph ? 10 : 3, kind === Kind.Glyph ? 10 : 2, r, 0, 0);
+      const x = Math.random() * this.W;
+      if (kindName === "snow") {
+        this.particles.spawn(Kind.Glow, x, -10, (Math.random() - 0.5) * 30, 25 + Math.random() * 35, 9000, 2.5 + Math.random() * 2.5, 2, this.ramp(["#ffffff", "#ffffff", "#e0f2fe", "#bae6fd", "#7dd3fc"]), 0, 0);
+      } else if (kindName === "petals") {
+        this.particles.spawn(Kind.Square, x + this.W * 0.2, -10, -30 - Math.random() * 40, 30 + Math.random() * 30, 9000, 6, 5, this.ramp(["#fbcfe8", "#f9a8d4", "#f472b6", "#ec4899", "#be185d"]), 0, 0);
+      } else if (kindName === "embers") {
+        this.particles.spawn(Kind.Ember, x, this.H + 10, (Math.random() - 0.5) * 20, -40 - Math.random() * 50, 5000, 2.5, 1, this.ramp(["#fff7d6", "#fde047", "#fb923c", "#ea580c", "#7c2d12"]), -5, 0);
+      } else {
+        const kind = kindName === "bits" ? Kind.Glyph : kindName === "ash" ? Kind.Square : kindName === "coins" ? Kind.Square : Kind.Glow;
+        const fall = kindName === "comets" ? 0 : 1;
+        this.particles.spawn(kind, x, fall ? -10 : Math.random() * this.H * 0.4, kindName === "comets" ? -120 : (Math.random() - 0.5) * 10, fall ? 30 + Math.random() * 40 : 20, 6000, kind === Kind.Glyph ? 10 : 3, kind === Kind.Glyph ? 10 : 2, r, 0, 0);
+      }
     }
   }
 
@@ -569,102 +597,39 @@ export class Engine {
   }
 
   // ------------------------------------------------------------------ drawing
+  /**
+   * The arena: the still part is drawn once into an offscreen canvas (when the
+   * theme or size changes); the live part (rain, crowds, aurora) is drawn over
+   * it every frame unless motion is reduced or effects are off.
+   */
   private drawBackground(): void {
     const g = this.bg.getContext("2d")!;
-    const W = this.W;
-    const H = this.H;
+    const live = this.quality !== "off" && !this.reduced;
+    if (this.bgDirty) {
+      if (!this.still) this.still = document.createElement("canvas");
+      this.still.width = this.bg.width;
+      this.still.height = this.bg.height;
+      const sg = this.still.getContext("2d")!;
+      sg.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      const list = [this.fighters[1], this.fighters[2]].map((f) => ({ x: f.baseX, y: f.baseY, size: f.size }));
+      drawStill(sg, this.W, this.H, this.theme, list);
+      this.bgDirty = false;
+      this.stillShown = false;
+    }
+    if (!live && this.stillShown) return;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(this.still!, 0, 0);
+    this.stillShown = true;
+    if (!live) return;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const th = this.theme;
-    const sky = th?.palette.sky ?? ["#0f172a", "#052e16"];
-    const grad = g.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, sky[0]);
-    grad.addColorStop(1, sky[1]);
-    g.fillStyle = grad;
-    g.fillRect(0, 0, W, H);
-    const layer = th?.layers[0] ?? "digits";
-    const accent = th?.palette.accent ?? "#22c55e";
-    g.globalAlpha = 0.18;
-    g.fillStyle = accent;
-    g.strokeStyle = accent;
-    if (layer === "digits") {
-      g.font = "14px monospace";
-      for (let y = 20; y < H; y += 26) for (let x = 8 + ((y / 26) % 2) * 12; x < W; x += 48) g.fillText(((x * 7 + y * 3) % 5) % 2 ? "1" : "0", x, y);
-    } else if (layer === "circuit") {
-      g.lineWidth = 2;
-      for (let i = 0; i < 26; i++) {
-        const x = (i * 97) % W;
-        const y = (i * 53) % H;
-        g.beginPath();
-        g.moveTo(x, y);
-        g.lineTo(x + 60, y);
-        g.lineTo(x + 60, y + 40);
-        g.lineTo(x + 110, y + 40);
-        g.stroke();
-        g.fillRect(x + 106, y + 36, 8, 8);
-      }
-    } else if (layer === "marble") {
-      g.globalAlpha = 0.25;
-      for (let i = 0; i < 5; i++) {
-        const sx = W * (0.1 + i * 0.2);
-        const sg = g.createRadialGradient(sx, 0, 0, sx, 0, H * 0.9);
-        sg.addColorStop(0, "#fde68a");
-        sg.addColorStop(1, "transparent");
-        g.fillStyle = sg;
-        g.fillRect(0, 0, W, H);
-      }
-      g.globalAlpha = 0.5;
-      g.fillStyle = accent;
-      g.fillRect(0, H * 0.82, W, 3);
-    } else if (layer === "hills") {
-      g.globalAlpha = 1;
-      const shades = ["#8bac0f", "#306230", "#0f380f"];
-      shades.forEach((c, i) => {
-        g.fillStyle = c;
-        g.beginPath();
-        g.moveTo(0, H);
-        for (let x = 0; x <= W; x += 8) g.lineTo(x, H * (0.55 + i * 0.13) + Math.round(Math.sin(x / (90 - i * 20) + i) * 14 / 4) * 4);
-        g.lineTo(W, H);
-        g.fill();
-      });
-    } else if (layer === "lava") {
-      g.globalAlpha = 0.45;
-      const lg = g.createLinearGradient(0, H * 0.6, 0, H);
-      lg.addColorStop(0, "transparent");
-      lg.addColorStop(1, "#f97316");
-      g.fillStyle = lg;
-      g.fillRect(0, 0, W, H);
-    } else if (layer === "stars") {
-      g.globalAlpha = 0.9;
-      g.fillStyle = "#ffffff";
-      for (let i = 0; i < 140; i++) g.fillRect((i * 137.5) % W, (i * 71.3) % H, i % 7 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1);
-      g.globalAlpha = 0.8;
-      g.fillStyle = "#7c3aed";
-      g.beginPath();
-      g.arc(W * 0.12, H * 0.2, 26, 0, Math.PI * 2);
-      g.fill();
-      g.strokeStyle = "#c4b5fd";
-      g.lineWidth = 3;
-      g.beginPath();
-      g.ellipse(W * 0.12, H * 0.2, 44, 10, -0.3, 0, Math.PI * 2);
-      g.stroke();
-    }
-    g.globalAlpha = 1;
-    // Stage pads under the fighters (old handheld battle staging)
-    const floor = th?.palette.floor ?? "#14532d";
-    for (const side of [1, 2] as const) {
-      const f = this.fighters[side];
-      g.fillStyle = floor;
-      g.globalAlpha = 0.85;
-      g.beginPath();
-      g.ellipse(f.baseX, f.baseY + f.size * 0.42, f.size * 0.75, f.size * 0.16, 0, 0, Math.PI * 2);
-      g.fill();
-      g.globalAlpha = 0.5;
-      g.strokeStyle = accent;
-      g.lineWidth = 2;
-      g.stroke();
-    }
-    g.globalAlpha = 1;
-    this.bgDirty = false;
+    const pk = Math.max(0, 1 - (this.gameTime - this.pulseT) / 900) * this.pulseLevel;
+    drawLive(g, this.W, this.H, this.theme, this.gameTime, pk, this.quality === "low");
+  }
+
+  /** The scenery reacts to a hit: 1 light .. 4 nuke. */
+  pulse(level: number): void {
+    this.pulseT = this.gameTime;
+    this.pulseLevel = Math.min(1, level / 4 + 0.15);
   }
 
   private drawParticles(g: CanvasRenderingContext2D): void {
@@ -741,7 +706,7 @@ export class Engine {
       g.drawImage(glowSprite(ramp[1]), x - 8, y - 8, 16, 16);
       return;
     }
-    if (drawShape(g, p.style as ProjectileShape, x, y, s, p.angle ?? 0, ramp, this.gameTime, p.metal, p.accent)) {
+    if (drawShape(g, p.style as ProjectileShape, x, y, s, p.face ?? p.angle ?? 0, ramp, this.gameTime, p.metal, p.accent)) {
       g.globalAlpha = 1;
       g.globalCompositeOperation = "source-over";
       return;
@@ -854,7 +819,7 @@ export class Engine {
   }
 
   private draw(now: number): void {
-    if (this.bgDirty) this.drawBackground();
+    this.drawBackground();
     const g = this.fx.getContext("2d")!;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
@@ -866,7 +831,10 @@ export class Engine {
       g.fillRect(0, 0, this.W, this.H);
       g.globalAlpha = 1;
     }
-    for (const r of this.reticles) drawReticle(g, r, this.gameTime);
+    for (const r of this.reticles) {
+      if (r.follow) [r.x, r.y] = r.follow();
+      drawReticle(g, r, this.gameTime);
+    }
     this.reticles = this.reticles.filter((r) => this.gameTime - r.t0 < r.dur);
     // decals on the floor
     for (const d of this.decals) {

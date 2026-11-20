@@ -20,6 +20,7 @@ export const sfx = {
   impact(cls: DamageClass) {
     if (!synth.begin(`impact`)) return;
     const k = CLASS_IDX[cls];
+    synth.duckHook?.(0.35 + k * 0.15, 250 + k * 150);
     synth.tone({ f0: 60, f1: 30, dur: 0.15 + k * 0.15, gain: 0.5 });
     synth.noise({ dur: 0.12 + k * 0.26, type: "lowpass", f0: 1800, f1: 200, gain: 0.35 });
     for (let i = 0; i < 3 + k * 3; i++) synth.noise({ dur: 0.02, type: "highpass", f0: 3000, gain: 0.12, delay: Math.random() * 0.3 });
@@ -96,6 +97,7 @@ export const sfx = {
   },
   boom(level = 3) {
     if (!synth.begin("boom")) return;
+    synth.duckHook?.(0.7, 700);
     synth.tone({ f0: 70, f1: 22, dur: 0.8 + level * 0.15, gain: 0.5 });
     synth.noise({ dur: 1 + level * 0.2, type: "lowpass", f0: 1200, f1: 60, gain: 0.3 });
   },
@@ -114,6 +116,7 @@ export const sfx = {
   },
   backfire() {
     if (!synth.begin("backfire")) return;
+    synth.duckHook?.(0.6, 500);
     synth.tone({ type: "sawtooth", f0: 400, f1: 60, dur: 0.45, gain: 0.2 });
     synth.noise({ dur: 0.15, type: "lowpass", f0: 1200, gain: 0.3, delay: 0.35 });
   },
@@ -127,10 +130,12 @@ export const sfx = {
   },
   victory() {
     if (!synth.begin("victory")) return;
+    synth.duckHook?.(0.9, 2000);
     synth.arpeggio([523, 659, 784, 1046, 784, 1046], 0.11);
   },
   defeat() {
     if (!synth.begin("defeat")) return;
+    synth.duckHook?.(0.9, 2000);
     synth.arpeggio([392, 330, 262, 196], 0.16, "square", 0.1);
   },
   rankUp() {
@@ -157,6 +162,79 @@ export const sfx = {
   },
   countdown() {
     if (synth.begin("countdown")) synth.tone({ type: "square", f0: 660, dur: 0.06, gain: 0.06 });
+  },
+  // ---- voices: every fighter has a pitch (0.8..1.25) so the two sound different
+  /** The battle cry for an attack style, louder for the bigger forms. */
+  cry(style: string, pitch = 1, level = 0) {
+    if (!synth.begin("cry")) return;
+    const p = 190 * pitch;
+    const g = 0.18 + level * 0.03;
+    if (style === "shoot") synth.voice({ f0: p * 1.1, f1: p * 0.8, dur: 0.16, vowels: ["a", "uh"], h: 0.03, gain: g });
+    else if (style === "draw") synth.voice({ f0: p, f1: p * 1.25, dur: 0.22, vowels: ["uh", "u"], h: 0.02, gain: g * 0.8 });
+    else if (style === "summon") {
+      synth.voice({ f0: p * 0.85, f1: p * 0.95, dur: 0.24, vowels: ["o", "u"], gain: g * 0.8 });
+      synth.voice({ f0: p * 1.3, f1: p * 0.9, dur: 0.26, vowels: ["a", "a"], h: 0.03, gain: g, delay: 0.2 });
+    } else synth.voice({ f0: p * 1.15, f1: p * 0.75, dur: 0.28, vowels: ["i", "a", "a"], h: 0.05, gain: g }); // "hyah!"
+  },
+  /** Hurt: a short "oof", a longer "ow!" for big hits. */
+  ouch(pitch = 1, big = false) {
+    if (!synth.begin("ouch")) return;
+    const p = 210 * pitch;
+    if (big) synth.voice({ f0: p * 1.5, f1: p * 0.7, dur: 0.42, vowels: ["a", "o", "u"], h: 0.02, gain: 0.24, vibrato: 6 });
+    else synth.voice({ f0: p * 1.05, f1: p * 0.7, dur: 0.18, vowels: ["o", "u"], gain: 0.2 });
+  },
+  /** "Uh-oh!": the misfired weapon has turned around. */
+  uhOh(pitch = 1) {
+    if (!synth.begin("uhoh")) return;
+    const p = 220 * pitch;
+    synth.voice({ f0: p * 1.2, f1: p * 1.15, dur: 0.15, vowels: ["uh", "uh"], gain: 0.2 });
+    synth.voice({ f0: p * 0.95, f1: p * 0.75, dur: 0.24, vowels: ["o", "o"], gain: 0.2, delay: 0.17 });
+  },
+  /** The long fall of a knocked-out fighter. */
+  koCry(pitch = 1) {
+    if (!synth.begin("kocry")) return;
+    synth.voice({ f0: 330 * pitch, f1: 120 * pitch, dur: 0.9, vowels: ["a", "a", "o", "u"], h: 0.03, gain: 0.22, vibrato: 9 });
+  },
+  cheer(pitch = 1) {
+    if (!synth.begin("cheer")) return;
+    synth.voice({ f0: 230 * pitch, f1: 330 * pitch, dur: 0.36, vowels: ["i", "e", "a"], h: 0.03, gain: 0.22 }); // "yeah!"
+  },
+  /** An arm swing. */
+  swish(level = 0) {
+    if (!synth.begin("swish")) return;
+    synth.noise({ dur: 0.12 + level * 0.02, type: "bandpass", f0: 700, f1: 2400, q: 1.8, gain: 0.1 + level * 0.02 });
+  },
+  /** A foot planting on a lunge or landing. */
+  step() {
+    if (!synth.begin("step")) return;
+    synth.tone({ f0: 110, f1: 55, dur: 0.07, gain: 0.18 });
+    synth.noise({ dur: 0.05, type: "lowpass", f0: 900, gain: 0.12 });
+  },
+  // ---- misfires
+  /** The error buzz and stutter when the attack goes wrong. */
+  misfire() {
+    if (!synth.begin("misfire")) return;
+    synth.tone({ type: "square", f0: 140, f1: 70, dur: 0.32, gain: 0.08 });
+    for (let i = 0; i < 6; i++) synth.noise({ dur: 0.035, type: "bandpass", f0: 1400 - i * 150, q: 2, gain: 0.14, delay: i * 0.05 });
+  },
+  /** A gun that will not fire: click, click. */
+  jam() {
+    if (!synth.begin("jam")) return;
+    for (let i = 0; i < 2; i++) {
+      synth.tone({ type: "square", f0: 2400, f1: 1600, dur: 0.02, gain: 0.08, delay: i * 0.16 });
+      synth.noise({ dur: 0.03, type: "highpass", f0: 3500, gain: 0.1, delay: i * 0.16 });
+    }
+  },
+  /** A bullet or beam bouncing off something it should not have hit. */
+  ricochet() {
+    if (!synth.begin("ricochet")) return;
+    synth.tone({ type: "sine", f0: 2600, f1: 900, dur: 0.28, gain: 0.1 });
+    synth.noise({ dur: 0.05, type: "highpass", f0: 4000, gain: 0.14 });
+  },
+  /** A projectile coming back: a rising whistle. */
+  whistle(sec: number) {
+    if (!synth.begin("whistle")) return;
+    synth.tone({ type: "sine", f0: 600, f1: 2200, dur: Math.max(0.15, sec), gain: 0.06 });
   },
   heartbeat() {
     if (!synth.begin("heartbeat")) return;

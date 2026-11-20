@@ -13,6 +13,8 @@ export default function VfxLab() {
   useEffect(() => onRegistry(() => setReg((x) => x + 1)), []);
   const cards = allSkins().filter((s) => s.kind === "card");
   const weapons = allSkins().filter((s) => s.kind === "weapon");
+  const arenas = allSkins().filter((s) => s.kind === "arena");
+  const [stage, setStage] = useState("arena.bit");
   const [skin, setSkin] = useState("card.classic");
   const [weapon, setWeapon] = useState("weapon.fireball");
   const [level, setLevel] = useState<number | "class">("class");
@@ -26,7 +28,7 @@ export default function VfxLab() {
   const [stats, setStats] = useState({ fps: 0, particles: 0, quality: "high" });
   const { s, set } = useSettings();
   const arena = useRef<ArenaHandle | null>(null);
-  const state = useMemo(() => dummyState({ cardSkin: skin, weapon, hp1, hp2 }), [skin, weapon, hp1, hp2]);
+  const state = useMemo(() => dummyState({ cardSkin: skin, weapon, hp1, hp2, arena: stage }), [skin, weapon, hp1, hp2, stage]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -56,8 +58,8 @@ export default function VfxLab() {
       d.play(fakeShield(def));
       window.setTimeout(() => d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: defHp, blocked: true, level: lv })), 400);
     }
-    if (outcome === "backfire") d.play(fakeBackfire(side, dmg / 2, cls, Math.max(1, (side === 1 ? hp1 : hp2) - dmg / 2)));
-    if (outcome === "selfdestruct") d.play(fakeBackfire(side, dmg / 2, cls, 0));
+    if (outcome === "backfire") d.play(fakeBackfire(side, dmg / 2, cls, Math.max(1, (side === 1 ? hp1 : hp2) - dmg / 2), lv));
+    if (outcome === "selfdestruct") d.play(fakeBackfire(side, dmg / 2, cls, 0, lv));
     if (outcome === "timer") d.play(fakeEnded("timer", side));
     if (outcome === "forfeit") d.play(fakeEnded("forfeit", side));
   };
@@ -85,6 +87,16 @@ export default function VfxLab() {
             {weapons.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          Arena
+          <select className="rounded bg-slate-900 p-1" value={stage} onChange={(e) => setStage(e.target.value)} data-testid="lab-arena">
+            {arenas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
               </option>
             ))}
           </select>

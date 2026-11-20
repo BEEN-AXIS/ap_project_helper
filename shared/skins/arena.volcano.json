@@ -20,11 +20,12 @@
     "lava"
   ],
   "ambient": {
-    "particles": "ash",
+    "particles": "embers",
     "rate": 8
   },
   "lighting": "soft",
   "reducedMotion": {
     "ambient": null
-  }
+  },
+  "music": "volcano"
 }

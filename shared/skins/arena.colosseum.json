@@ -1,0 +1,32 @@
+{
+  "id": "arena.colosseum",
+  "kind": "arena",
+  "name": "Cyber Colosseum",
+  "rarity": "legendary",
+  "unlock": {
+    "type": "achievement",
+    "id": "hot_streak",
+    "label": "Win 5 ranked matches in a row"
+  },
+  "palette": {
+    "sky": [
+      "#020617",
+      "#111827"
+    ],
+    "floor": "#57534e",
+    "accent": "#22d3ee",
+    "text": "#ecfeff"
+  },
+  "layers": [
+    "colosseum"
+  ],
+  "ambient": {
+    "particles": "motes",
+    "rate": 2
+  },
+  "music": "colosseum",
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

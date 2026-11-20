@@ -168,3 +168,35 @@ test("C++ with a custom template, and full screen", async ({ browser }) => {
   await expect(p.getByTestId("submit-verdict")).toContainText("ACCEPTED");
   expect(errors).toEqual([]);
 });
+
+test("home, profile, arena music and the misfire preview", async ({ browser }) => {
+  const errors: string[] = [];
+  const p = await signIn(browser, "bob", "bob-pass", errors);
+
+  // home: the hero, the battle picker with arena pictures, your record and achievements
+  await expect(p.getByTestId("hero")).toBeVisible();
+  await expect(p.getByTestId("map-bit")).toBeVisible();
+  await expect(p.getByTestId("ach-flawless")).toBeVisible();
+  await p.mouse.click(5, 400); // the first click lets the browser play audio
+  await expect(p.getByTestId("now-playing")).toContainText("Lobby Lounge");
+  // each map card previews its arena's track
+  await p.getByTestId("preview-prestige").click();
+  await expect(p.getByTestId("now-playing")).toContainText("Marble Hall Fugue");
+  await p.getByTestId("preview-prestige").click();
+  await expect(p.getByTestId("now-playing")).toContainText("Lobby Lounge");
+
+  // the profile: stats, achievements and history
+  await p.goto("/profile/bob");
+  await expect(p.getByTestId("profile-stats")).toBeVisible();
+  await expect(p.getByTestId("profile-achievements")).toContainText("Hot Streak");
+
+  // the locker: arenas play their own track; a weapon's misfire can be previewed
+  await p.goto("/locker");
+  await p.getByTestId("tab-arena").click();
+  await p.getByTestId("skin-arena.volcano").click();
+  await expect(p.getByTestId("arena-track")).toContainText("Magma Core");
+  await p.getByTestId("tab-weapon").click();
+  await p.getByTestId("preview-misfire").click();
+  await expect.poll(async () => p.evaluate(() => (window.__vfx?.events ?? []).filter((e) => e.show === "backfire").map((e) => e.step)), { timeout: 8_000 }).toContain("explosion");
+  expect(errors).toEqual([]);
+});

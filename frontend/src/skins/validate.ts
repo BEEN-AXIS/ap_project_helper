@@ -16,6 +16,7 @@ export interface Recipes {
   rarity: string[];
   weapon_style: string[];
   weapon_status: string[];
+  music?: string[];
   max_particle_rate: number;
 }
 
@@ -80,6 +81,8 @@ export function validateManifest(m: any, recipes: Recipes, filename?: string): s
   } else if (m?.kind === "arena") {
     for (const l of m.layers ?? []) if (!recipes.layer.includes(l)) e.push(`${id}: unknown layer ${l}`);
     if ((m.ambient?.rate ?? 0) > recipes.max_particle_rate) e.push(`${id}: ambient particle rate over the limit`);
+    if (m.ambient?.particles != null && !recipes.particles.includes(m.ambient.particles)) e.push(`${id}: unknown ambient.particles ${m.ambient.particles}`);
+    if (m.music !== undefined && !(recipes.music ?? []).includes(m.music)) e.push(`${id}: unknown music track ${m.music}`);
     for (const sky of m.palette?.sky ?? []) if (contrast(m.palette.text, sky) < 4.5) e.push(`${id}: text contrast under 4.5 on ${sky}`);
   }
   return e;

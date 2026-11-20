@@ -1,0 +1,31 @@
+{
+  "id": "arena.frost",
+  "kind": "arena",
+  "name": "Frozen Peak",
+  "rarity": "rare",
+  "unlock": {
+    "type": "tier",
+    "tier": 3
+  },
+  "palette": {
+    "sky": [
+      "#020617",
+      "#0c2d48"
+    ],
+    "floor": "#155e75",
+    "accent": "#5eead4",
+    "text": "#f0f9ff"
+  },
+  "layers": [
+    "snow"
+  ],
+  "ambient": {
+    "particles": "snow",
+    "rate": 10
+  },
+  "music": "frost",
+  "lighting": "soft",
+  "reducedMotion": {
+    "ambient": null
+  }
+}

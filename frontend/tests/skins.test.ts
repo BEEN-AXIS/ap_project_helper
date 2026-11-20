@@ -11,7 +11,7 @@ const files = readdirSync(dir).map((name) => ({ name, data: JSON.parse(readFileS
 
 describe("skin manifests", () => {
   it("the launch catalogue is valid", () => {
-    expect(files.length).toBe(33);
+    expect(files.length).toBe(37);
     expect(validateAll(files, recipes)).toEqual([]);
   });
   it("rejects low contrast, unknown recipes, external URLs and missing fallbacks", () => {
