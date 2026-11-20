@@ -2,10 +2,12 @@
 """Judge harness. Runs inside the sandbox (Docker) or as the dev runner's child.
 
 Reads one job spec as JSON on stdin, writes the source into the current
-directory, compiles it, then runs each test through limit_exec.py with the
+directory, compiles it (a syntax check for Python, the configured compiler
+for C++ and other compiled languages), then runs each test through limit_exec.py with the
 input on stdin. Prints one JSON object per line:
 
   {"type": "compile_error", "message": "line 3: invalid syntax"}
+  {"type": "system_error", "message": "the g++ compiler is not installed on the judge"}
   {"type": "test", "index": 0, "status": "OK|TLE|MLE|RE|OLE", "time_ms", "memory_kb", "stdout", "stderr_tail"}
   {"type": "done"}
 
@@ -20,6 +22,7 @@ import math
 import os
 import re
 import resource
+import shutil
 import signal
 import subprocess
 import sys
@@ -119,6 +122,8 @@ def run_one(argv: list[str], test_input: str, lim: dict, workdir: str, env: dict
 
     if killed:
         status = killed
+    elif "std::bad_alloc" in stderr_tail:
+        status = "MLE"  # C++ new failed against the memory cap
     elif out_size > out_cap or "File too large" in stderr_tail:
         # CPython ignores SIGXFSZ, so hitting the file-size cap shows up as an
         # OSError and exit code 1 rather than a signal: it is still OLE.
@@ -145,6 +150,51 @@ def run_one(argv: list[str], test_input: str, lim: dict, workdir: str, env: dict
     return {"status": status, "time_ms": cpu_ms, "memory_kb": int(memory_kb), "stdout": stdout, "stderr_tail": stderr_tail}
 
 
+INCLUDE_DIR = os.path.join(HERE, "include")  # bits/stdc++.h for compilers that lack it (clang on macOS)
+_DIAG_RE = re.compile(r"^(?:main\.\w+:\d+:\d+: (?:error|fatal error)|.*error:)", re.M)
+
+
+def compile_source(argv: list[str], lim: dict, workdir: str, env: dict) -> tuple[str, str]:
+    """Run the compiler under limits. Returns ("ok"|"error"|"missing", message)."""
+    if shutil.which(argv[0], path=env.get("PATH")) is None:
+        return "missing", f"the {argv[0]} compiler is not installed on the judge"
+    err_path = os.path.join(workdir, ".cerr")
+    cpu_s = int(lim.get("cpu_s", 20))
+    mem_mb = int(lim.get("memory_mb", 1536))
+    # No address-space or process-count limit here: the compiler driver forks the
+    # assembler and linker, and on macOS RLIMIT_NPROC counts all of the user's processes.
+    cmd = [sys.executable, LIMIT_EXEC, str(cpu_s), "0", str(64 * 1024 * 1024), "256", "0", "--", *argv]
+    t0 = time.monotonic()
+    with open(err_path, "wb") as ferr:
+        p = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=ferr, stderr=ferr, cwd=workdir, env=env,
+                             start_new_session=True, close_fds=True)
+        while p.poll() is None:
+            if time.monotonic() - t0 > cpu_s * 1.5 + 5:
+                kill_group(p)
+                return "error", f"compilation took longer than {cpu_s} s"
+            if psutil is not None:
+                try:
+                    if tree_rss(p.pid) > mem_mb * 1024 * 1024:
+                        kill_group(p)
+                        return "error", f"the compiler used more than {mem_mb} MB"
+                except Exception:
+                    pass
+            time.sleep(0.02)
+        rc = p.wait()
+        kill_group(p)
+    with open(err_path, "rb") as f:
+        text = scrub(f.read(64 * 1024).decode("utf-8", errors="replace"), workdir)
+    if rc == 0:
+        return "ok", ""
+    if rc < 0 and -rc == getattr(signal, "SIGXCPU", -1):
+        return "error", f"compilation took longer than {cpu_s} s"
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    # Lead with the first error, then as much context as fits.
+    first = next((i for i, ln in enumerate(lines) if _DIAG_RE.match(ln)), 0)
+    msg = "\n".join(lines[first:first + 30]) or f"compiler exited with code {rc}"
+    return "error", msg[:3000]
+
+
 def main() -> None:
     spec = json.loads(sys.stdin.read())
     workdir = os.getcwd()
@@ -169,7 +219,18 @@ def main() -> None:
         "PYTHONIOENCODING": "utf-8",
         "LANG": "C.UTF-8",
         "HOME": workdir,
+        "TMPDIR": workdir,
     }
+    if spec.get("compile"):
+        cargv = [a.replace("{src}", src_name).replace("{include}", INCLUDE_DIR) for a in spec["compile"]]
+        state, message = compile_source(cargv, spec.get("compile_limits") or {}, workdir, env)
+        if state == "missing":
+            emit({"type": "system_error", "message": message})
+            return
+        if state == "error":
+            emit({"type": "compile_error", "message": message})
+            emit({"type": "done"})
+            return
     argv = [a.replace("{src}", src_name) for a in spec["run"]]
     for t in spec["tests"]:
         res = run_one(argv, t["input"], spec["limits"], workdir, env)

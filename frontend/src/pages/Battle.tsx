@@ -34,7 +34,7 @@ export default function Battle({ params }: { params: { id: string } }) {
   const [toast, setToast] = useState<{ text: string; t: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(t("battle.fairplay"));
   const [actionErr, setActionErr] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<number, { code: string; problem: string }>>({});
+  const [drafts, setDrafts] = useState<Record<number, { code: string; problem: string; language?: string }>>({});
   const [help, setHelp] = useState(false);
   const [blocked, setBlocked] = useState<"other-tab" | null>(null);
   const [igniting, setIgniting] = useState<number | null>(null);
@@ -97,8 +97,8 @@ export default function Battle({ params }: { params: { id: string } }) {
       }
       start();
     }, 150);
-    void api<{ drafts: { slot: number; code: string; problem: string }[] }>(`/matches/${matchId}/drafts`)
-      .then((d) => setDrafts(Object.fromEntries(d.drafts.map((x) => [x.slot, { code: x.code, problem: x.problem }]))))
+    void api<{ drafts: { slot: number; code: string; problem: string; language: string }[] }>(`/matches/${matchId}/drafts`)
+      .then((d) => setDrafts(Object.fromEntries(d.drafts.map((x) => [x.slot, { code: x.code, problem: x.problem, language: x.language }]))))
       .catch(() => {});
     const noticeTimer = window.setTimeout(() => setNotice(null), 6000);
     return () => {

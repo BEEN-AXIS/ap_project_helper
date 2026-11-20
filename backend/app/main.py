@@ -24,7 +24,7 @@ from app.core.errors import envelope, install_error_handlers
 from app.core.logging import RequestIdMiddleware, setup_logging
 from app.engine.matchmaker import Matchmaker
 from app.engine.service import MatchService
-from app.judge import make_runner
+from app.judge import language_tools_present, make_runner
 from app.judge.pool import JudgePool
 from app.realtime import ws
 from app.realtime.hub import Hub
@@ -123,6 +123,9 @@ async def config(ctx: AppContext = Depends(ctx_dep)) -> dict:
     except ImportError:
         data["skin_registry_version"] = None
     data["judge_backend"] = {"name": ctx.runner.name, "sandboxed": ctx.runner.sandboxed}
+    present = language_tools_present(ctx.cfg, ctx.runner.name)
+    for lang in data["languages"]:
+        lang["available"] = present.get(lang["id"], False)
     return data
 
 

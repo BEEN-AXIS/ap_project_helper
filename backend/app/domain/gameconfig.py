@@ -129,13 +129,18 @@ class LanguageCfg(_Strict):
     id: str
     name: str
     monaco: str
-    run: str
+    run: str  # argv; {src} is the source file
     file: str
-    time_multiplier: int
+    time_multiplier: int  # problem time limits are set for C++; slower languages get a multiple
+    compile: str | None = None  # argv; {src} the source, {include} the harness's include dir
+    comment: str = "#"  # line-comment marker (the test judge's "VERDICT" markers, templates)
+    judge0_id: int | None = None
 
 
 class JudgeCfg(_Strict):
     stop_on_first_fail: bool
+    compile_time_s: int = 20
+    compile_memory_mb: int = 1536
     concurrency: int
     time_limit_ms: int
     memory_mb: int

@@ -14,7 +14,10 @@ import { cardSkin } from "../../skins/registry";
 import type { BattleState, Side } from "../../state/battle.reducer";
 import { serverNow } from "../../state/battle.store";
 import { useSettings } from "../../state/settings";
+import { startingCode, templateFor } from "../../lib/templates";
 import { CodeEditor } from "./CodeEditor";
+import { CompilerOutput } from "./CompilerOutput";
+import { LanguagePicker, useLanguages } from "./languages";
 
 interface RunTest {
   index: number;
@@ -97,7 +100,7 @@ export function Workspace({
   onSlot: (s: number) => void;
   onBack: () => void;
   onHint: () => void;
-  drafts: Record<number, { code: string; problem: string }>;
+  drafts: Record<number, { code: string; problem: string; language?: string }>;
   setDraftFlag: (slot: number, code: string, problem: string) => void;
 }) {
   const card = state.hand[slot];
@@ -106,21 +109,10 @@ export function Workspace({
   const me = state.players?.[you];
   const skin = cardSkin(me?.skins?.card);
   const fontSize = useSettings((s) => s.s.fontSize);
-  // Languages come from game-config.json via /api/config; Python is the fallback.
-  const { data: pub } = useQuery<{ languages?: { id: string; name: string; monaco: string }[] }>({
-    queryKey: ["public-config"],
-    queryFn: () => api("/config"),
-    staleTime: Infinity,
-  });
-  const languages = pub?.languages?.length ? pub.languages : [{ id: "python", name: "Python 3", monaco: "python" }];
-  const [language, setLanguage] = useState<string>(() => {
-    try {
-      return localStorage.getItem("aa.lang") ?? "python";
-    } catch {
-      return "python";
-    }
-  });
-  const monacoLang = languages.find((l) => l.id === language)?.monaco ?? language;
+  const { languages, lang, setLanguage, fellBackFrom } = useLanguages();
+  const language = lang.id;
+  const templates = useSettings((s) => s.s.templates);
+  const monacoLang = lang.monaco;
   const { data: problem } = useQuery<ProblemDetail>({ queryKey: ["problem", slug], queryFn: () => api(`/problems/${slug}`), enabled: !!slug, staleTime: 600_000 });
   const [code, setCode] = useState("");
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -146,14 +138,14 @@ export function Workspace({
   useEffect(() => {
     if (!slug || !problem || loadedFor.current === `${slot}:${slug}:${language}`) return;
     loadedFor.current = `${slot}:${slug}:${language}`;
-    let initial = problem.stubs?.[language] ?? "";
+    let initial = startingCode(language, problem.stubs?.[language], templates);
     try {
       const raw = localStorage.getItem(draftKey(matchId, slot, language));
       const local = raw ? (JSON.parse(raw) as { code: string; problem: string; savedAt: string }) : null;
       if (local && local.problem === slug) {
         initial = local.code;
         setSavedAt(local.savedAt);
-      } else if (drafts[slot]?.problem === slug) initial = drafts[slot].code;
+      } else if (drafts[slot]?.problem === slug && (drafts[slot].language ?? "python") === language) initial = drafts[slot].code;
     } catch {
       /* ignore */
     }
@@ -181,6 +173,14 @@ export function Workspace({
     },
     [matchId, slot, slug, setDraftFlag, language],
   );
+
+  /** Replace the code with the template (yours if set, else the built-in one). */
+  const insertTemplate = () => {
+    const tpl = templateFor(language, templates);
+    const cur = codeRef.current;
+    if (cur.trim() && cur !== tpl && cur !== problem?.stubs?.[language] && !window.confirm(t("editor.template_confirm"))) return;
+    onChange(tpl);
+  };
 
   // A pending save never outlives the editor; a submit makes it unnecessary
   // because the server already holds the submitted code.
@@ -351,25 +351,20 @@ export function Workspace({
         <span className="ml-auto font-mono text-xs text-slate-400" title={t("editor.time_on_card")}>
           ⏱ {mmss(onCard)}
         </span>
-        <select
-          className="rounded bg-slate-900 px-2 py-1 text-xs"
-          value={language}
-          aria-label="Language"
-          onChange={(e) => {
-            setLanguage(e.target.value);
-            try {
-              localStorage.setItem("aa.lang", e.target.value);
-            } catch {
-              /* ignore */
-            }
-          }}
+        <LanguagePicker languages={languages} value={language} onChange={setLanguage} />
+        {fellBackFrom && (
+          <span className="text-[10px] text-amber-300" role="status">
+            {t("editor.lang_fallback", { language: fellBackFrom.name, fallback: lang.name })}
+          </span>
+        )}
+        <button
+          className="btn btn-ghost !min-h-8 text-xs"
+          onClick={insertTemplate}
+          title={t("editor.template_title", { language: lang.name })}
+          data-testid="insert-template"
         >
-          {languages.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </select>
+          ⎘ {t("editor.template")}
+        </button>
         <button className="btn btn-ghost !min-h-8 text-xs" onClick={() => void doRun()} disabled={running} data-testid="run" title="Ctrl/Cmd+Enter">
           {running ? t("editor.judging") : `▶ ${t("editor.run")}`}
         </button>
@@ -495,10 +490,10 @@ export function Workspace({
               {lv && lv.slot === slot && !inflight && (
                 <span className={`ml-2 font-bold ${lv.verdict === "AC" ? "text-green-400" : "text-red-400"}`} data-testid="submit-verdict">
                   {lv.void ? t("verdict.void", { reason: lv.reason ?? "" }) : `${t(`verdict.${lv.verdict}`)}${lv.failed_test ? ` ${t("verdict.failed_test", { n: lv.failed_test })}` : ""}`}
-                  {lv.compile_error ? ` — ${lv.compile_error}` : ""}
                 </span>
               )}
             </div>
+            {lv && lv.slot === slot && !inflight && lv.compile_error && <CompilerOutput text={lv.compile_error} />}
             <div className="mb-2 flex items-center gap-2">
               <label className="flex items-center gap-1 text-slate-400">
                 <input type="checkbox" checked={useCustom} onChange={(e) => setUseCustom(e.target.checked)} /> {t("editor.use_custom")}
@@ -510,17 +505,16 @@ export function Workspace({
             )}
             {runErr && <div className="text-red-400">{runErr}</div>}
             {!run && !runErr && <div className="text-slate-500">{t("editor.no_results")}</div>}
+            {run?.compile_error && (
+              <div className="mb-2">
+                <div className="font-bold text-red-400">{t("verdict.CE")}</div>
+                <CompilerOutput text={run.compile_error} />
+              </div>
+            )}
             {run && (
               <div className="grid gap-2 md:grid-cols-[minmax(0,14rem)_1fr]">
                 <table className="w-full text-left">
                   <tbody>
-                    {run.compile_error && (
-                      <tr>
-                        <td colSpan={4} className="text-red-400">
-                          {t("verdict.CE")}: {run.compile_error}
-                        </td>
-                      </tr>
-                    )}
                     {run.tests.map((tt, i) => (
                       <tr key={i} className={`cursor-pointer ${i === selected ? "bg-slate-800" : ""}`} onClick={() => setSelected(i)} data-testid={`run-row-${i}`}>
                         <td className="px-1">#{tt.index + 1}</td>

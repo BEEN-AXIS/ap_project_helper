@@ -60,6 +60,9 @@ class DockerRunner:
 
     def argv(self, job: Job, name: str) -> list[str]:
         lim = job.limits
+        # Compilers need far more memory than the program they build; the program's
+        # own cap is still the RLIMIT_AS (and RSS polling) the harness applies per test.
+        mem = lim.memory_mb + 128 if not job.compile_argv else max(lim.memory_mb, job.compile_memory_mb) + 128
         return [
             "docker", "run", "--rm", "-i", "--name", name,
             "--network", "none",
@@ -70,8 +73,8 @@ class DockerRunner:
             "--pids-limit", str(lim.nproc),
             # Headroom over the per-test limit for the harness itself; the user
             # program's own cap is the RLIMIT_AS set by limit_exec.py.
-            "--memory", f"{lim.memory_mb + 128}m",
-            "--memory-swap", f"{lim.memory_mb + 128}m",
+            "--memory", f"{mem}m",
+            "--memory-swap", f"{mem}m",
             "--cpus", "1",
             "--user", "65534:65534",
             "--ulimit", f"nofile={lim.nofile}",

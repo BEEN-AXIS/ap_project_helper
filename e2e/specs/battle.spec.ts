@@ -136,3 +136,35 @@ test("double-clicking submit creates one submission", async ({ browser }) => {
   await expect(a.getByTestId("battle-log").getByText(/Submitting /)).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+
+test("C++ with a custom template, and full screen", async ({ browser }) => {
+  const errors: string[] = [];
+  const p = await signIn(browser, "alice", "alice-pass", errors);
+
+  // full screen: the header button, then F to leave
+  await p.getByTestId("fullscreen").click();
+  await expect.poll(() => p.evaluate(() => !!document.fullscreenElement)).toBe(true);
+  await p.keyboard.press("f");
+  await expect.poll(() => p.evaluate(() => !!document.fullscreenElement)).toBe(false);
+
+  // Settings → Code: C++ by default, with my own template
+  await p.getByRole("button", { name: "Settings" }).click();
+  await p.locator('[role="dialog"] [data-testid="language"]').selectOption("cpp");
+  await p.getByTestId("template-tab-cpp").click();
+  const tpl = "// my template\n#include <bits/stdc++.h>\nusing namespace std;\nint main() {\n}\n";
+  await p.getByTestId("template-editor").fill(tpl);
+  await p.getByTestId("template-save").click();
+  await p.keyboard.press("Escape");
+
+  // a bot match: the card opens in C++ with the template, and a // marker is judged
+  await p.getByTestId("mode-bot").click();
+  await p.getByTestId("start").click();
+  await p.waitForURL("**/battle/**");
+  await expect(p.locator('[data-testid="battle"][data-status="live"]')).toBeVisible({ timeout: 20_000 });
+  await openCard(p, 1);
+  await expect(p.getByTestId("language")).toHaveValue("cpp");
+  await expect.poll(() => p.evaluate(() => (document.querySelector('[data-testid="workspace"] textarea') as HTMLTextAreaElement | null)?.value ?? (window as any).__algoarenaEditor?.getValue() ?? "")).toContain("// my template");
+  await submit(p, "// VERDICT: AC\n// DELAY_MS: 20\nint main(){}\n");
+  await expect(p.getByTestId("submit-verdict")).toContainText("ACCEPTED");
+  expect(errors).toEqual([]);
+});

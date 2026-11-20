@@ -1,5 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { LanguagePicker, useLanguages } from "../features/editor/languages";
+import { DEFAULT_TEMPLATES, hasCustomTemplate, templateFor } from "../lib/templates";
 import { t } from "../i18n";
 import { useSettings, type Settings } from "../state/settings";
 
@@ -43,7 +45,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div ref={ref} className="panel my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col p-5">
+      <div ref={ref} className="panel my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col p-5">
         <div className="mb-4 flex shrink-0 items-center justify-between">
           <h2 className="pixel text-xs text-green-400">{title}</h2>
           <button className="btn btn-ghost !min-h-8 !px-2" onClick={onClose} aria-label={t("common.close")}>
@@ -104,6 +106,95 @@ export function SettingsModal({ onClose }: { onClose: () => void }) {
       <Row label={t("settings.font")}>
         <input type="number" min={11} max={24} className="w-16 rounded bg-slate-800 px-2 py-1" value={s.fontSize} onChange={(e) => set({ fontSize: Number(e.target.value) })} />
       </Row>
+      <CodeSettings />
     </Modal>
+  );
+}
+
+/** Default coding language and your own starting template per language. */
+function CodeSettings() {
+  const { s, set } = useSettings();
+  const { languages, lang, setLanguage } = useLanguages();
+  const [editing, setEditing] = useState(lang.id);
+  const [draft, setDraft] = useState(() => templateFor(lang.id, s.templates));
+  const [saved, setSaved] = useState(false);
+  const pick = (id: string) => {
+    setEditing(id);
+    setDraft(templateFor(id, s.templates));
+    setSaved(false);
+  };
+  const save = (code: string) => {
+    const next = { ...s.templates };
+    if (!code.trim() || code === DEFAULT_TEMPLATES[editing]) delete next[editing];
+    else next[editing] = code;
+    set({ templates: next });
+    setSaved(true);
+  };
+  const tooBig = new Blob([draft]).size > 16 * 1024;
+  return (
+    <section className="mt-3 border-t border-slate-700 pt-3" aria-label={t("settings.code")}>
+      <h3 className="mb-1 text-sm font-bold text-white">{t("settings.code")}</h3>
+      <Row label={t("settings.code_language")}>
+        <LanguagePicker languages={languages} value={lang.id} onChange={setLanguage} />
+      </Row>
+      <div className="mt-2 flex items-center justify-between gap-2 text-sm text-slate-300">
+        <span>{t("settings.templates")}</span>
+        <span className="flex gap-1" role="tablist">
+          {languages.map((l) => (
+            <button
+              key={l.id}
+              role="tab"
+              aria-selected={editing === l.id}
+              onClick={() => pick(l.id)}
+              className={`rounded px-2 py-0.5 text-xs ${editing === l.id ? "bg-slate-600 text-white" : "bg-slate-800 text-slate-400"}`}
+              data-testid={`template-tab-${l.id}`}
+            >
+              {l.name}
+            </button>
+          ))}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">{t("settings.templates_help")}</p>
+      <textarea
+        className="mt-2 h-56 w-full resize-y rounded border border-slate-700 bg-slate-950 p-2 font-mono text-xs leading-5 text-slate-200"
+        spellCheck={false}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setSaved(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const el = e.currentTarget;
+            const at = el.selectionStart;
+            const next = draft.slice(0, at) + "    " + draft.slice(el.selectionEnd);
+            setDraft(next);
+            requestAnimationFrame(() => el.setSelectionRange(at + 4, at + 4));
+          }
+        }}
+        aria-label={t("settings.templates")}
+        data-testid="template-editor"
+      />
+      <div className="mt-1 flex items-center gap-2">
+        <button className="btn btn-primary !min-h-8 text-xs" disabled={tooBig} onClick={() => save(draft)} data-testid="template-save">
+          {t("settings.template_save")}
+        </button>
+        <button
+          className="btn btn-ghost !min-h-8 text-xs"
+          onClick={() => {
+            setDraft(DEFAULT_TEMPLATES[editing] ?? "");
+            save("");
+          }}
+        >
+          {t("settings.template_reset")}
+        </button>
+        <span className="text-xs text-slate-500">
+          {hasCustomTemplate(editing, s.templates) ? t("settings.template_custom") : t("settings.template_builtin")}
+          {saved && <span className="ml-2 text-green-400">✓ {t("settings.template_saved")}</span>}
+          {tooBig && <span className="ml-2 text-red-400">16 KB max</span>}
+        </span>
+      </div>
+    </section>
   );
 }

@@ -13,7 +13,7 @@ import base64
 from app.judge import checkers
 from app.judge.runner import Job, JobResult, ProgressFn, RunnerHealth, TestVerdict
 
-LANGUAGE_IDS = {"python": 71}  # Judge0 CE: Python 3.8.1
+LANGUAGE_IDS = {"python": 71, "cpp": 54}  # Judge0 CE: Python 3.8.1, C++ (GCC 9.2.0); config judge0_id wins
 STATUS = {3: "OK", 4: "WA", 5: "TLE", 6: "CE", 7: "RE", 8: "RE", 9: "RE", 10: "RE", 11: "RE", 12: "RE", 13: "SE", 14: "SE"}
 
 
@@ -47,7 +47,7 @@ class Judge0Runner:
     async def run(self, job: Job, on_progress: ProgressFn) -> JobResult:
         import httpx
 
-        lang = LANGUAGE_IDS.get(job.language)
+        lang = job.judge0_id or LANGUAGE_IDS.get(job.language)
         if lang is None:
             return JobResult(compile_error=None, system_error=True, system_message="language not mapped for Judge0")
         lim = job.limits

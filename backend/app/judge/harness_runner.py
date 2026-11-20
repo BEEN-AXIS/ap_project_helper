@@ -27,6 +27,8 @@ def harness_spec(job: Job) -> dict:
         "file": job.file,
         "source": job.source,
         "run": job.run_argv,
+        "compile": job.compile_argv,
+        "compile_limits": {"cpu_s": job.compile_time_s, "memory_mb": job.compile_memory_mb},
         "limits": job.limits.to_json(),
         "stop_on_first_fail": job.stop_on_first_fail,
         "tests": [{"index": t.index, "input": t.input} for t in job.tests],
@@ -83,6 +85,11 @@ async def drive_harness(
             msg = json.loads(raw)
             if msg["type"] == "compile_error":
                 result.compile_error = msg["message"]
+            elif msg["type"] == "system_error":
+                result.system_error = True
+                result.system_message = msg["message"]
+                done = True
+                break
             elif msg["type"] == "test":
                 v = to_verdict(job, msg)
                 result.verdicts.append(v)

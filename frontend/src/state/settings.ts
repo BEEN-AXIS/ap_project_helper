@@ -14,7 +14,9 @@ export interface Settings {
   fontSize: number;
   muted: boolean;
   autoBot: boolean;
-  language: string;
+  language: string; // interface language
+  codeLanguage: string; // the editor's starting language (python, cpp, ...)
+  templates: Record<string, string>; // your own starting code per language; empty = built-in
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -31,6 +33,8 @@ export const DEFAULT_SETTINGS: Settings = {
   muted: false,
   autoBot: false,
   language: "en",
+  codeLanguage: "python",
+  templates: {},
 };
 
 const KEY = "algoarena.settings";

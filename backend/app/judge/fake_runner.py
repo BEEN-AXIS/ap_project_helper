@@ -9,7 +9,7 @@ end-to-end tests and the five-minute demo deterministic:
     # VERDICT: SE          judge system error (no recoil)
     # DELAY_MS: 400        simulated judging time per test (default 60)
 
-Code without a marker is treated as AC.
+Code without a marker is treated as AC. C++ uses // instead of #.
 """
 
 from __future__ import annotations
@@ -19,8 +19,8 @@ import re
 
 from app.judge.runner import Job, JobResult, ProgressFn, RunnerHealth, TestVerdict
 
-_VERDICT = re.compile(r"#\s*VERDICT:\s*(AC|WA|TLE|MLE|RE|OLE|CE|SE)(?:\s+(\d+))?", re.I)
-_DELAY = re.compile(r"#\s*DELAY_MS:\s*(\d+)", re.I)
+_VERDICT = re.compile(r"(?:#|//)\s*VERDICT:\s*(AC|WA|TLE|MLE|RE|OLE|CE|SE)(?:\s+(\d+))?", re.I)
+_DELAY = re.compile(r"(?:#|//)\s*DELAY_MS:\s*(\d+)", re.I)
 
 
 class FakeRunner:

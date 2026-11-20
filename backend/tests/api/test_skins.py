@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.core.db import get_engine
 from app.models import Profile
+from app.core.config import load_game_config_file
 from app.skins.registry import RECIPES, load_registry, validate
 from tests.api.test_api import H, client, signup  # noqa: F401  (fixture)
 
@@ -92,3 +93,52 @@ def test_the_equipped_weapon_travels_into_the_match(client: TestClient) -> None:
     assert me["skins"]["weapon"] == "weapon.gun"
     assert bot["skins"]["weapon"].startswith("weapon.")
     client.post(f"/api/matches/{r.json()['match_id']}/forfeit", headers=H(tok), json={"cmd_id": "ff-1"})
+
+
+# ---------------------------------------------------------------- languages and templates
+# (kept here with the other per-player customisation tests)
+
+
+def test_config_lists_cpp_with_availability(client: TestClient) -> None:  # noqa: F811
+    langs = {lang["id"]: lang for lang in client.get("/api/config").json()["languages"]}
+    assert set(langs) == {"python", "cpp"}
+    assert langs["cpp"]["monaco"] == "cpp" and langs["cpp"]["comment"] == "//" and langs["cpp"]["available"] is True
+
+
+def test_cpp_runs_in_practice_and_unknown_languages_are_refused(client: TestClient) -> None:  # noqa: F811
+    tok, _ = signup(client)
+    ok = client.post("/api/problems/power-check/run", headers=H(tok), json={"language": "cpp", "code": "// VERDICT: AC\nint main(){}"})
+    assert ok.status_code == 200 and ok.json()["verdict"] == "AC"
+    bad = client.post("/api/problems/power-check/run", headers=H(tok), json={"language": "rust", "code": "fn main(){}"})
+    assert bad.json()["error"]["code"] == "validation"
+
+
+def test_missing_compiler_gives_a_helpful_message(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import shutil as sh
+
+    from app.core.errors import AppError
+    from app.services.judging import validate_language
+
+    cfg = load_game_config_file()
+    monkeypatch.setattr(sh, "which", lambda _tool, path=None: None)
+    try:
+        validate_language("cpp", cfg, "subprocess")
+        raise AssertionError("expected a validation error")
+    except AppError as e:
+        assert "C++17 is not available" in e.message and "g++" in e.message and "xcode-select" in e.message
+    validate_language("cpp", cfg, "docker")  # the image brings its own compiler
+    validate_language("python", cfg, "subprocess")
+
+
+def test_templates_are_saved_per_language_and_validated(client: TestClient) -> None:  # noqa: F811
+    tok, _ = signup(client)
+    tpl = "#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n}\n"
+    r = client.patch("/api/me/settings", headers=H(tok), json={"settings": {"sfx": 0.5, "templates": {"cpp": tpl}}})
+    assert r.status_code == 200 and r.json()["settings"]["templates"]["cpp"] == tpl
+    assert client.get("/api/me", headers=H(tok)).json()["settings"]["templates"]["cpp"] == tpl
+    unknown = client.patch("/api/me/settings", headers=H(tok), json={"settings": {"templates": {"rust": "fn main(){}"}}})
+    assert unknown.json()["error"]["code"] == "validation"
+    huge = client.patch("/api/me/settings", headers=H(tok), json={"settings": {"templates": {"cpp": "x" * 20000}}})
+    assert huge.json()["error"]["code"] == "validation"
+    big_but_fine = client.patch("/api/me/settings", headers=H(tok), json={"settings": {"templates": {"cpp": "/" * 12000, "python": "#" * 12000}}})
+    assert big_but_fine.status_code == 200

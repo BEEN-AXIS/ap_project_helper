@@ -41,6 +41,10 @@ class Job:
     limits: Limits
     run_argv: list[str]
     file: str = "main.py"
+    compile_argv: list[str] | None = None  # compiled languages only
+    compile_time_s: int = 20
+    compile_memory_mb: int = 1536
+    judge0_id: int | None = None
     checker: str = "exact"
     checker_script: str | None = None
 

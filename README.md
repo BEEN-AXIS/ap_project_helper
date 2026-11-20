@@ -48,7 +48,7 @@ Each row is one difficulty (easy, normal, medium, tough); the columns show the w
 
 ## Quick start
 
-Needs **Python 3.12+** (3.14 on Apple silicon is the reference), **Node 20+** and `make`. Docker is optional (it gives you the real sandboxed judge).
+Needs **Python 3.12+** (3.14 on Apple silicon is the reference), **Node 20+** and `make`. For C++ you need a compiler: on a Mac, `xcode-select --install` provides `g++`. Docker is optional (it gives you the real sandboxed judge, with its own compiler).
 
 ```bash
 make setup     # venv + pip install, npm install, .env from .env.example, seed the database
@@ -56,6 +56,8 @@ make dev       # API on :8000 with auto-reload + Vite on :5173
 ```
 
 Open http://127.0.0.1:5173 and sign in as `alice` / `alice-pass` (also `bob` / `bob-pass`, `admin` / `admin-pass`), or sign up.
+
+**Full screen:** the ⛶ button in the top bar or the **F** key (outside text fields); Esc or F again leaves it.
 
 `make dev` waits for the API to answer before starting the web app, and stops both on Ctrl-C (or as soon as either one stops). If port 8000 or 5173 is taken it uses the next free one and says which process holds the port, so a server left over from an earlier run is easy to find; `API_PORT=9000 make dev` picks ports yourself.
 
@@ -84,7 +86,7 @@ This builds the judge image, then the API image (which also builds and serves th
 | `make demo` | Builds the web app and serves everything on :8000 (or the next free port) with the fake judge and fast bots |
 | `make test` | pytest + Vitest + the stale-types check |
 | `make e2e` | Playwright: two browser contexts play a ranked match |
-| `make seed-check` | Runs every reference solution through the judge |
+| `make seed-check` | Runs every reference solution (Python and C++) through the judge |
 | `make load` | 50 simultaneous bot-vs-bot matches in one process |
 | `make types` | Regenerates `frontend/src/net/protocol.generated.ts` from the Pydantic models |
 | `make lint` | Ruff, mypy (strict on `domain/`), ESLint, tsc |
@@ -103,7 +105,7 @@ The fake judge reads the verdict from a comment in your code, so you can play a 
    ```python
    # VERDICT: AC
    ```
-   Bob's HP drops on both screens. Other markers: `# VERDICT: WA 3`, `TLE`, `MLE`, `RE`, `CE`, and `# DELAY_MS: 800` to slow the judge.
+   Bob's HP drops on both screens. Other markers: `# VERDICT: WA 3`, `TLE`, `MLE`, `RE`, `CE`, and `# DELAY_MS: 800` to slow the judge. In C++ write them as `// VERDICT: AC`.
 5. Bob can raise **Block** (absorbs one hit within 20 s) or submit `# VERDICT: WA 2` to see a backfire.
 6. Keep hitting until someone is at zero. Both players land on the result screen with the rating breakdown, Arena Points and unlocks.
 
@@ -121,6 +123,7 @@ To see the weapons: **Locker → Weapons**, pick one and press each of the four 
 | Damage | Base damage of *your* tier × a multiplier from `your tier − problem tier`: −20% per easier tier, +20% per harder one (clamped 20%–180%) |
 | Recoil | A wrong answer costs you half your tier's base damage scaled the same way; the card stays in your hand |
 | Hand | Four cards of four different tiers, dealt from a window around your tier. Both players see the same problems for each tier; the deal is a deterministic function of the match seed |
+| Languages | Python 3 and C++17 (`g++ -std=c++17 -O2`; `#include <bits/stdc++.h>` works everywhere, including clang on macOS). Time limits are set for C++; Python gets 8x. Pick a default language and write your own starting template per language in **Settings → Code**; the **Template** button in the editor puts it back |
 | Difficulty | Each card is labelled Easy, Normal, Medium or Tough: its place in your hand window (lowest tier to highest). The server sends it with the card and with the attack. It picks the animation only; damage still comes from the tier difference |
 | Weapons | A cosmetic you equip in the Locker. It decides how your attacks look and sound at each difficulty, and both players see it. Five are owned from the start (Fireball, Spear, Blaster, Lightning, Longbow); Shuriken costs 300 AP, Laser Cannon unlocks at Specialist and Meteor at Expert |
 | Crit | Solving a problem two or more tiers above you is a crit |
@@ -242,11 +245,12 @@ cp_battle/
 | Migration | 〃 | `alembic/versions/0001_initial.py` builds exactly the schema the models declare |
 | Web | `make test-frontend` | The reducer reproduces server state at 11 checkpoints of a recorded match; director timings match the brief's tables; all 32 weapon forms land their main hit exactly on the impact step and throw nothing; skin manifests validate |
 | Types and lint | `make typecheck`, `make lint` | Strict TypeScript and ESLint over the whole web app |
-| End to end | `make e2e` | Two browsers: queue, ready check, difficulty labels on every card, a hit, a block, a backfire, a KO, both result screens, VFX steps fired, zero console errors; equipping a weapon and previewing its four forms; double submit creates one submission |
-| Content | `make seed-check` | Every reference solution passes its tests within half the time limit; brute-force solutions TLE on the large tests |
+| End to end | `make e2e` | Two browsers: queue, ready check, difficulty labels on every card, a hit, a block, a backfire, a KO, both result screens, VFX steps fired, zero console errors; equipping a weapon and previewing its four forms; a C++ card that opens with your saved template; full screen on and off; double submit creates one submission |
+| C++ | `make test-backend` | Through the real compiler: accepted, wrong answer, compile errors (the compiler's message, temp paths removed), crashes, time and memory limits, output limit, a million-deep recursion, custom input, a missing compiler, the sandbox tripwire |
+| Content | `make seed-check` | Every reference solution, Python and C++, passes its tests within half the time limit; brute-force solutions TLE on the large tests |
 | Load | `make load` | 50 concurrent bot-vs-bot matches finish without errors |
 
-Last run: **217 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfailed** (documented limits of the dev subprocess runner); 60 web unit tests passed; the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
+Last run: **233 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfailed** (documented limits of the dev subprocess runner); 60 web unit tests passed; the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
 
 ---
 
@@ -273,11 +277,11 @@ Last run: **217 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfa
 
 ### A language
 
-1. Add an entry to `languages` in `shared/game-config.json`: `id`, `name`, `monaco` (editor mode), `run` (argv with `{src}`), `file` (source file name) and `time_multiplier`.
-2. Install the runtime in `backend/app/judge/Dockerfile.judge` (and on your machine for the dev runner).
-3. Add a stub under `stubs.<id>` in each problem, then `make seed`.
-4. The editor's language picker reads the list from `/api/config`.
-   *Today only interpreted languages work end to end:* the harness has a syntax check for Python but no compile step. A compiled language needs a `compile` argv in the config and a compile phase in `harness/run_tests.py` that reports `compile_error`.
+C++ is the worked example of a compiled language.
+
+1. Add an entry to `languages` in `shared/game-config.json`: `id`, `name`, `monaco` (editor mode), `file` (source file name), `run` (argv; `{src}` is the source file), `time_multiplier` (limits are set for C++), `comment` (line-comment marker) and `judge0_id`. A compiled language also gets `compile` (argv; `{include}` is the harness's include folder). The harness compiles once per job under its own limits (`judge.compile_time_s`, `judge.compile_memory_mb`); a failure is a Compile Error showing the compiler's output.
+2. Install the toolchain in `backend/app/judge/Dockerfile.judge`, and on your machine for the dev runner. The language list (`/api/config`) marks a language unavailable when the dev runner cannot find its compiler, and the server refuses it with a message saying what to install.
+3. Optionally add a built-in starting template in `frontend/src/lib/templates.ts`, a `stubs.<id>` in problems, Monaco's syntax module in `MonacoEditor.tsx`, and reference solutions in `backend/seed/solutions_<id>/` for `make seed-check`.
 
 ### A bot personality
 
@@ -321,8 +325,8 @@ Add an entry under `bots.personalities` in `shared/game-config.json` (`slot_weig
 | `powerups` | `block.charges`, `block.window_s`, `hint.charges`, `hint.levels` |
 | `rating` | `starting`, `floor`, `win`, `rank_gap`, `flawless_points`, `flawless_bonus`, `narrow_win_share_pct`, `narrow_win_penalty`, `speed_brackets[]`, `slow_bracket_name`, `bot_multiplier_pct`, `bot_daily_gain_cap`, `friendly_multiplier_pct`, `rematch_multiplier_pct`, `rematch_window_min` |
 | `matchmaking` | `window_start`, `window_step`, `window_step_s`, `window_max`, `ready_check_s`, `bot_fallback_s`, `tick_ms`, `recent_opponent_min`, `recent_override_wait_s`, `decline_cooldown_s`, `same_ip_block`, `lobby_leave_grace_s` |
-| `languages[]` | `id`, `name`, `monaco`, `run`, `file`, `time_multiplier` |
-| `judge` | `stop_on_first_fail`, `concurrency`, `time_limit_ms`, `memory_mb`, `output_limit_kb`, `source_limit_kb`, `input_limit_kb`, `custom_input_limit_kb`, `wall_factor`, `wall_extra_ms`, `max_processes`, `dev_fsize_mb`, `job_timeout_s`, `queue_timeout_s`, `max_queued`, `run_time_cap_ms`, `run_wait_s`, `stderr_tail_kb`, `system_error_flag_after` |
+| `languages[]` | `id`, `name`, `monaco`, `run`, `file`, `time_multiplier`, `compile`, `comment`, `judge0_id` |
+| `judge` | `stop_on_first_fail`, `compile_time_s`, `compile_memory_mb`, `concurrency`, `time_limit_ms`, `memory_mb`, `output_limit_kb`, `source_limit_kb`, `input_limit_kb`, `custom_input_limit_kb`, `wall_factor`, `wall_extra_ms`, `max_processes`, `dev_fsize_mb`, `job_timeout_s`, `queue_timeout_s`, `max_queued`, `run_time_cap_ms`, `run_wait_s`, `stderr_tail_kb`, `system_error_flag_after` |
 | `rate_limits` | Token buckets (`capacity`, `per_s`) for `login`, `signup`, `run`, `queue_join`, `rest`, `ws_msgs` |
 | `bots` | `think_median_s` per tier, `think_sigma`, `miss_wait_s`, `judge_delay_s`, `rating_spread`, `default_personality`, `personalities` (each with the `weapon` it fights with), `names` |
 | `economy` | Arena Points: `match`, `win`, `draw`, `per_hit`, `per_match_hit_cap`, `flawless`, `blitz`, `first_win_of_day`, `streak_per_level`, `streak_cap`, `casual_modes_pct`, `casual_modes_daily_cap`, `tutorial_reward` |
@@ -341,7 +345,7 @@ The client gets everything except `bots`, `rate_limits` and the private judge li
 
 - **DockerRunner (default when available)** runs each job in a fresh container: `--network none`, read-only root, a 64 MB `/tmp` tmpfs, `--cap-drop ALL`, `no-new-privileges`, a pids limit, memory and CPU caps, uid 65534, no volume mounts. The source and test inputs go in on stdin; expected outputs never enter the container and checking happens on the host.
 - **The Docker socket warning.** Whatever can talk to the Docker socket is effectively root on the host. In `docker compose` the API container mounts it to start judge containers, so a compromise of the API is a compromise of the host. On a shared or public server, prefer a dedicated judge host, a rootless/remote Docker daemon, or `JUDGE_BACKEND=judge0`.
-- **SubprocessRunner is for development only.** It runs code as your user, with rlimits (CPU, file size, open files, processes), `psutil` memory polling (macOS ignores `RLIMIT_AS`), a stripped environment, a temp working directory and process-group kill on timeout. It cannot stop file reads or network access. The AST check that rejects imports such as `os`, `subprocess` and `socket` is a tripwire, **not security**. The UI shows a DEV SANDBOX badge, and `ENV=prod` refuses this runner.
+- **SubprocessRunner is for development only.** It runs code as your user, with rlimits (CPU, file size, open files, processes), `psutil` memory polling (macOS ignores `RLIMIT_AS`), a stripped environment, a temp working directory and process-group kill on timeout. It cannot stop file reads or network access. The checks that reject Python imports such as `subprocess` and `socket`, and C++ calls such as `system`, `fork` and `popen`, are a tripwire, **not security**. The C++ compiler runs under its own CPU, memory and file-size limits. The UI shows a DEV SANDBOX badge, and `ENV=prod` refuses this runner.
 - **FakeRunner** exists only when `ENV=test` and refuses to load otherwise.
 - Auth: Argon2id password hashes, 15-minute JWT access tokens, rotating refresh tokens in an httpOnly cookie with reuse detection, single-use 30-second WebSocket tickets, per-route rate limits, a 256 KB body limit, a strict CSP, and one error envelope (`{"error": {"code", "message", "details"}}`).
 - Fair play: pastes and tab switches are logged and shown to players as a notice; they are signals for review, not proof.
@@ -353,7 +357,7 @@ The client gets everything except `bots`, `rate_limits` and the private judge li
 Labelled in code, here and in the UI:
 
 - **Bots** (badge "BOT (simulated)"): they never run code. A bot picks a card by personality, "thinks" for a log-normal time, and succeeds with a probability based on the tier gap. Their submissions are stored with the source `# BOT (simulated)`.
-- **TEST JUDGE** badge: the FakeRunner (`ENV=test`) reads the verdict from `# VERDICT:` comments.
+- **TEST JUDGE** badge: the FakeRunner (`ENV=test`) reads the verdict from `# VERDICT:` comments (`// VERDICT:` in C++).
 - **DEV SANDBOX** badge: the subprocess runner.
 - **Practice** mode fights a passive dummy and changes nothing.
 
@@ -367,7 +371,7 @@ Written honestly, from most to least important:
 2. **Docker was not available here.** DockerRunner, `Dockerfile.judge`, the API `Dockerfile` and `docker compose up` are written to the brief but untested; the 11 Docker tests skip without a daemon. The subprocess runner and the full escape suite were tested.
 3. **Alembic was not installed here.** The baseline migration is generated from the models and checked by building it with a stand-in for `alembic.op`; a real `alembic upgrade head` has not been run. The server adopts an existing pre-migration SQLite file by stamping it. Postgres is supported through SQLModel but untested.
 4. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, music, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
-5. **One language (Python).** See [adding a language](#a-language) for what a compiled language still needs.
+5. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).
 6. **No Codeforces API.** Codeforces does not publish hidden tests, so the server cannot judge its problems itself. The game ships 17 original problems in Codeforces style (bit manipulation, binary search, general), each with a reference solution, a brute force and generated tests.
 7. **Problem bounds were reduced** where the expected output would exceed the 64 KB output limit (for example Subset Parade n ≤ 11, Gray Ladder n ≤ 12).
 8. **Judge0Runner** is implemented against the Judge0 CE API but was not run against a live Judge0.

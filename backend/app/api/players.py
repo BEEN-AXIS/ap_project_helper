@@ -78,9 +78,24 @@ class SettingsBody(BaseModel):
     settings: dict
 
 
+TEMPLATE_MAX_BYTES = 16 * 1024
+
+
 @router.patch("/me/settings")
-async def save_settings(body: SettingsBody, caller: Caller = Depends(current)) -> dict:
-    if len(json.dumps(body.settings)) > 4096:
+async def save_settings(body: SettingsBody, caller: Caller = Depends(current), ctx: AppContext = Depends(ctx_dep)) -> dict:
+    # Code templates (one per language) live here too, so the budget is generous;
+    # everything else together must stay small.
+    templates = body.settings.get("templates", {})
+    if not isinstance(templates, dict):
+        raise AppError("validation", "templates must map a language to its code")
+    known = {lang.id for lang in ctx.cfg.languages}
+    for lang, code in templates.items():
+        if lang not in known:
+            raise AppError("validation", f"Unknown language {lang!r} in templates")
+        if not isinstance(code, str) or len(code.encode()) > TEMPLATE_MAX_BYTES:
+            raise AppError("validation", "Each template must be text under 16 KB")
+    rest = {k: v for k, v in body.settings.items() if k != "templates"}
+    if len(json.dumps(rest)) > 4096:
         raise AppError("validation", "Settings are too large")
 
     def work(s: Session) -> dict:

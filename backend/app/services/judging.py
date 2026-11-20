@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.core.errors import AppError
 from app.domain.gameconfig import GameConfig
-from app.judge import build_job
+from app.judge import build_job, language_tools_present
 from app.judge.pool import PRIORITY_PRACTICE, PRIORITY_RUN, PRIORITY_SUBMIT, JudgePool
 from app.judge.runner import JobResult, ProgressFn, TestCase, no_progress
 from app.services.problems import CachedProblem
@@ -17,11 +17,18 @@ def validate_code(code: str, cfg: GameConfig) -> None:
         raise AppError("code_too_large", "Code must be under 64 KB")
 
 
-def validate_language(language: str, cfg: GameConfig) -> None:
+def validate_language(language: str, cfg: GameConfig, runner_name: str | None = None) -> None:
     try:
-        cfg.language(language)
+        lang = cfg.language(language)
     except KeyError:
         raise AppError("validation", f"Unknown language {language!r}") from None
+    if runner_name and not language_tools_present(cfg, runner_name).get(language, True):
+        tool = (lang.compile or lang.run).split()[0]
+        raise AppError(
+            "validation",
+            f"{lang.name} is not available on this server: {tool} was not found. "
+            "Install it (on a Mac: xcode-select --install) or judge in Docker (make judge-image).",
+        )
 
 
 async def run_samples(
@@ -29,7 +36,7 @@ async def run_samples(
     custom_input: str | None, practice: bool = False,
 ) -> dict:
     """A free Run: the sample tests, or one custom input. Never touches HP."""
-    validate_language(language, cfg)
+    validate_language(language, cfg, pool.runner.name)
     validate_code(code, cfg)
     if custom_input is not None:
         if len(custom_input.encode()) > cfg.judge.custom_input_limit_kb * 1024:

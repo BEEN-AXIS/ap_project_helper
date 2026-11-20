@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -49,6 +50,22 @@ def tripwire(source: str) -> str | None:
     return None
 
 
+# The same idea for C++: process control, shells and sockets.
+_CPP_TRIPWIRE = re.compile(
+    r"\b(system|popen|fork|vfork|execv|execve|execvp|execl|execlp|posix_spawn|kill|socket|connect|remove|unlink|rename)\s*\("
+    r"|#\s*include\s*<\s*(unistd\.h|sys/socket\.h|sys/wait\.h|spawn\.h|netinet/in\.h|arpa/inet\.h|dlfcn\.h)\s*>"
+)
+
+
+def cpp_tripwire(source: str) -> str | None:
+    code = re.sub(r"//[^\n]*|/\*.*?\*/", "", source, flags=re.S)  # ignore comments
+    m = _CPP_TRIPWIRE.search(code)
+    if not m:
+        return None
+    what = m.group(1) or f"<{m.group(2)}>"
+    return f"{what} is not allowed in the dev sandbox"
+
+
 class SubprocessRunner:
     name = "subprocess"
     sandboxed = False
@@ -63,8 +80,8 @@ class SubprocessRunner:
         return RunnerHealth(True, self.name, False, "dev sandbox: not safe for untrusted users")
 
     async def run(self, job: Job, on_progress: ProgressFn) -> JobResult:
-        if self.use_tripwire and job.language == "python":
-            reason = tripwire(job.source)
+        if self.use_tripwire:
+            reason = tripwire(job.source) if job.language == "python" else cpp_tripwire(job.source) if job.language == "cpp" else None
             if reason:
                 return JobResult(compile_error=f"DEV SANDBOX tripwire: {reason}")
         workdir = tempfile.mkdtemp(prefix="aa-job-")

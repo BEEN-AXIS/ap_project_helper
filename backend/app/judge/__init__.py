@@ -80,6 +80,22 @@ def build_job(
         limits=build_limits(time_limit_ms, memory_mb, lang.time_multiplier, cfg, cap),
         run_argv=lang.run.split(),
         file=lang.file,
+        compile_argv=lang.compile.split() if lang.compile else None,
+        compile_time_s=cfg.judge.compile_time_s,
+        compile_memory_mb=cfg.judge.compile_memory_mb,
+        judge0_id=lang.judge0_id,
         checker=checker,
         checker_script=checker_script,
     )
+
+
+def language_tools_present(cfg: GameConfig, runner_name: str) -> dict[str, bool]:
+    """Which languages this judge can run. Docker, Judge0 and the test judge bring their
+    own toolchains; the dev runner uses this machine's, so look for the compiler."""
+    import shutil
+
+    out: dict[str, bool] = {}
+    for lang in cfg.languages:
+        tool = (lang.compile or lang.run).split()[0]
+        out[lang.id] = runner_name != "subprocess" or tool in ("python3", "python") or shutil.which(tool) is not None
+    return out

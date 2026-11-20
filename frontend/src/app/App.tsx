@@ -5,6 +5,7 @@ import { loadRegistry } from "../skins/registry";
 import { useAuth } from "../state/auth";
 import { Link, navigate, RouterView, usePath } from "./router";
 import { SettingsModal } from "./SettingsModal";
+import { useFullscreen, useFullscreenShortcut } from "../lib/fullscreen";
 
 function NotFound() {
   return (
@@ -55,6 +56,7 @@ function Nav() {
       </nav>
       <SandboxBadge />
       <span className="pixel text-[10px] text-yellow-300">{profile.points ?? 0} AP</span>
+      <FullscreenButton />
       <button className="btn btn-ghost !min-h-8 !px-2 text-xs" onClick={() => setSettings(true)} aria-label={t("settings.title")}>
         ⚙
       </button>
@@ -90,9 +92,27 @@ export function ServerDown({ kind, onRetry }: { kind: "unreachable" | "foreign";
   );
 }
 
+export function FullscreenButton({ className = "" }: { className?: string }) {
+  const fs = useFullscreen();
+  if (!fs.supported) return null;
+  return (
+    <button
+      className={`btn btn-ghost !min-h-8 !px-2 text-xs ${className}`}
+      onClick={fs.toggle}
+      aria-pressed={fs.on}
+      aria-label={t(fs.on ? "fullscreen.exit" : "fullscreen.enter")}
+      title={`${t(fs.on ? "fullscreen.exit" : "fullscreen.enter")} (F)`}
+      data-testid="fullscreen"
+    >
+      {fs.on ? "🗗" : "⛶"}
+    </button>
+  );
+}
+
 export function App() {
   const ready = useAuth((s) => s.ready);
   const authed = useAuth((s) => !!s.token);
+  useFullscreenShortcut();
   useEffect(() => {
     void loadRegistry();
   }, []);

@@ -573,8 +573,8 @@ class MatchActor:
         if not simulated:
             from app.services.judging import validate_code, validate_language
 
-            validate_language(language, self.cfg)
             try:
+                validate_language(language, self.cfg, self.svc.pool.runner.name)
                 validate_code(code, self.cfg)
             except AppError as e:
                 raise RuleError(e.code, e.message) from None
