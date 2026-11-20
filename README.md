@@ -57,6 +57,10 @@ make dev       # API on :8000 with auto-reload + Vite on :5173
 
 Open http://127.0.0.1:5173 and sign in as `alice` / `alice-pass` (also `bob` / `bob-pass`, `admin` / `admin-pass`), or sign up.
 
+`make dev` waits for the API to answer before starting the web app, and stops both on Ctrl-C (or as soon as either one stops). If port 8000 or 5173 is taken it uses the next free one and says which process holds the port, so a server left over from an earlier run is easy to find; `API_PORT=9000 make dev` picks ports yourself.
+
+**Troubleshooting.** A page that says "Can't reach the AlgoArena server" means the web app is up but the API is not: the terminal running `make dev` shows why. To see what holds a port: `lsof -nP -iTCP:8000 -sTCP:LISTEN`; stop it with `kill <PID>` (a process marked `T` in `ps` was suspended with Ctrl-Z: bring it back with `fg` and press Ctrl-C, or `kill -9 <PID>`).
+
 Without Docker the server judges code with the **DEV SANDBOX** subprocess runner (labelled in the UI). To judge in containers:
 
 ```bash
@@ -77,7 +81,7 @@ This builds the judge image, then the API image (which also builds and serves th
 
 | Target | What it does |
 |---|---|
-| `make demo` | Builds the web app and serves everything on :8000 with the fake judge and fast bots |
+| `make demo` | Builds the web app and serves everything on :8000 (or the next free port) with the fake judge and fast bots |
 | `make test` | pytest + Vitest + the stale-types check |
 | `make e2e` | Playwright: two browser contexts play a ranked match |
 | `make seed-check` | Runs every reference solution through the judge |
@@ -221,7 +225,7 @@ cp_battle/
       i18n/               en.json
     tests/                reducer (golden match), director timings, weapons (all 32 forms), skin validator
   e2e/                    Playwright config + specs (two browser contexts)
-  scripts/                load_test.py, make_types.py, dev.sh, e2e_server.sh
+  scripts/                load_test.py, make_types.py, dev.sh, ports.py, e2e_server.sh
   docs/PLAN.md            architecture, phases and gates, risks, decisions
 ```
 

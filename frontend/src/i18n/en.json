@@ -304,5 +304,11 @@
   "card.level_title": "{level} card: your {weapon} attacks as {form}",
   "locker.weapons": "Weapons",
   "locker.weapon_help": "Your weapon is how your attacks look; it never changes damage. The card's difficulty picks the form.",
-  "locker.preview_level": "Preview {level}"
+  "locker.preview_level": "Preview {level}",
+  "server.down_title": "Can't reach the AlgoArena server",
+  "server.down_body": "The web app is running, but the API is not answering. Check the terminal where you ran make dev: an error there (such as a port that is already in use) tells you why.",
+  "server.foreign_title": "Something else is answering on the API port",
+  "server.foreign_body": "A program that is not the AlgoArena server answered at /api. Another app may be using port 8000; stop it, or run make dev again and it will pick a free port.",
+  "server.retrying": "Retrying every few seconds.",
+  "server.retry": "Retry now"
 }

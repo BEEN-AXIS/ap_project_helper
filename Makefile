@@ -32,9 +32,10 @@ dev: ## API on :8000 (auto-reload) + Vite on :5173
 	@bash scripts/dev.sh
 
 demo: build ## Five-minute demo: ENV=test, fake judge, fast bots, one origin on :8000
-	@echo "Demo mode: FakeRunner judge (put '# VERDICT: AC' in your code), bots solve in seconds."
+	@PORT=$$($(PY) scripts/ports.py $${DEMO_PORT:-8000} "demo server") || exit 1; \
+	echo "Demo mode on http://127.0.0.1:$$PORT  (fake judge: put '# VERDICT: AC' in your code; bots solve in seconds)"; \
 	cd backend && export ENV=test JUDGE_BACKEND=fake BOT_TIME_SCALE=0.02 DATABASE_URL=sqlite:///demo.db && \
-	  $(PY) -m app.seed && $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+	  $(PY) -m app.seed && exec $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port $$PORT
 
 seed: ## Validate skins, load problems, demo users and bots (idempotent)
 	cd backend && $(PY) -m app.seed

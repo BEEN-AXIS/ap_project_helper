@@ -73,6 +73,23 @@ function Nav() {
   );
 }
 
+/** Shown instead of an endless splash when the API is missing or something else holds its port. */
+export function ServerDown({ kind, onRetry }: { kind: "unreachable" | "foreign"; onRetry: () => void }) {
+  return (
+    <div className="flex h-full items-center justify-center p-6" data-testid="server-down">
+      <div className="panel max-w-lg space-y-3 p-6">
+        <div className="pixel text-xs text-green-400">ALGOARENA</div>
+        <h1 className="text-lg font-bold text-white">{t(kind === "foreign" ? "server.foreign_title" : "server.down_title")}</h1>
+        <p className="text-sm text-slate-300">{t(kind === "foreign" ? "server.foreign_body" : "server.down_body")}</p>
+        <p className="text-xs text-slate-500">{t("server.retrying")}</p>
+        <button className="btn btn-primary" onClick={onRetry}>
+          {t("server.retry")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const ready = useAuth((s) => s.ready);
   const authed = useAuth((s) => !!s.token);
