@@ -153,7 +153,7 @@ export function Workspace({
     setCode(initial);
     setRun(null);
     setStamp(null);
-  }, [slug, problem, slot, matchId, drafts, language]);
+  }, [slug, problem, slot, matchId, drafts, language, templates]);
 
   const persist = useCallback(
     (value: string) => {
