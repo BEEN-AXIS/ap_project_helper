@@ -3,7 +3,8 @@
 SHELL   := /bin/bash
 PYTHON  ?= python3
 VENV    := backend/.venv
-PY      := $(abspath $(VENV))/bin/python
+# Quoted so the repo works from folders with spaces in their path.
+PY      := "$(CURDIR)/$(VENV)/bin/python"
 NPM     ?= npm
 
 .DEFAULT_GOAL := help
@@ -32,9 +33,8 @@ dev: ## API on :8000 (auto-reload) + Vite on :5173
 
 demo: build ## Five-minute demo: ENV=test, fake judge, fast bots, one origin on :8000
 	@echo "Demo mode: FakeRunner judge (put '# VERDICT: AC' in your code), bots solve in seconds."
-	cd backend && ENV=test JUDGE_BACKEND=fake BOT_TIME_SCALE=0.02 DATABASE_URL=sqlite:///$(abspath backend)/demo.db \
-	  $(PY) -m app.seed && ENV=test JUDGE_BACKEND=fake BOT_TIME_SCALE=0.02 DATABASE_URL=sqlite:///$(abspath backend)/demo.db \
-	  $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+	cd backend && export ENV=test JUDGE_BACKEND=fake BOT_TIME_SCALE=0.02 DATABASE_URL=sqlite:///demo.db && \
+	  $(PY) -m app.seed && $(PY) -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 seed: ## Validate skins, load problems, demo users and bots (idempotent)
 	cd backend && $(PY) -m app.seed
