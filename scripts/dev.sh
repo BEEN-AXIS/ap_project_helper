@@ -12,20 +12,31 @@ PY="$ROOT/backend/.venv/bin/python"
 API_PORT="$("$PY" "$ROOT/scripts/ports.py" "${API_PORT:-8000}" API)" || exit 1
 WEB_PORT="$("$PY" "$ROOT/scripts/ports.py" "${WEB_PORT:-5173}" "web app")" || exit 1
 
-# Job control gives each child its own process group, so stopping them never
-# signals make or this shell (the old version took make down with it).
-set -m
+# No job control: everything stays in the terminal's foreground group, so Ctrl-C
+# reaches this script. Background children ignore SIGINT, so the trap stops them
+# (and their children: the uvicorn worker, Vite under npm) by PID.
 API_PID=""
 WEB_PID=""
+kill_tree() {
+  local pid=$1 child
+  for child in $(pgrep -P "$pid" 2>/dev/null); do kill_tree "$child"; done
+  kill -TERM "$pid" 2>/dev/null || true
+}
 stop_all() {
   trap - EXIT INT TERM
-  for pid in $WEB_PID $API_PID; do kill -TERM -- "-$pid" 2>/dev/null || true; done
-  wait 2>/dev/null
+  for pid in $WEB_PID $API_PID; do kill_tree "$pid"; done
+  for _ in 1 2 3 4 5 6; do
+    alive=""
+    for pid in $WEB_PID $API_PID; do kill -0 "$pid" 2>/dev/null && alive=1; done
+    [ -z "$alive" ] && return
+    sleep 0.5
+  done
+  for pid in $WEB_PID $API_PID; do kill -KILL "$pid" 2>/dev/null || true; done
 }
-trap 'echo; echo "Stopping AlgoArena..."; stop_all; exit 0' INT TERM
+trap 'echo; echo "Stopping AlgoArena..."; stop_all; echo "Stopped."; exit 0' INT TERM
 trap stop_all EXIT
 
-# stdin from /dev/null: a background process reading the terminal would be suspended.
+# stdin from /dev/null: the servers never read the terminal.
 (cd "$ROOT/backend" && exec "$PY" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" --reload --reload-dir app --reload-dir ../shared) </dev/null &
 API_PID=$!
 
