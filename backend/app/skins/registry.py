@@ -16,7 +16,10 @@ from app.core.config import SHARED_DIR
 SKINS_DIR = SHARED_DIR / "skins"
 RECIPES = SHARED_DIR / "skin-recipes.json"
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
-DEFAULTS = {"card": "card.classic", "avatar": "bean.plain"}
+DEFAULTS = {"card": "card.classic", "avatar": "bean.plain", "weapon": "weapon.fireball"}
+KINDS = ("card", "avatar", "arena", "weapon")
+PREFIX = {"card": "card.", "avatar": "bean.", "arena": "arena.", "weapon": "weapon."}
+LEVEL_KEYS = ("easy", "normal", "medium", "tough")
 
 
 def _lum(hex_: str) -> float:
@@ -39,9 +42,9 @@ def validate(m: dict[str, Any], recipes: dict[str, Any], filename: str | None = 
     if filename and filename != f"{sid}.json":
         errs.append(f"{filename}: file must be named after its id")
     kind = m.get("kind")
-    if kind not in ("card", "avatar", "arena"):
-        errs.append(f"{sid}: kind must be card, avatar or arena")
-    if not str(sid).startswith({"card": "card.", "avatar": "bean.", "arena": "arena."}.get(str(kind), "?")):
+    if kind not in KINDS:
+        errs.append(f"{sid}: kind must be card, avatar, arena or weapon")
+    if not str(sid).startswith(PREFIX.get(str(kind), "?")):
         errs.append(f"{sid}: id prefix does not match kind")
     if m.get("rarity") not in recipes["rarity"]:
         errs.append(f"{sid}: unknown rarity")
@@ -60,7 +63,7 @@ def validate(m: dict[str, Any], recipes: dict[str, Any], filename: str | None = 
         errs.append(f"{sid}: external URLs are not allowed")
     pal = m.get("palette") or {}
     for k, v in pal.items():
-        vals = v if isinstance(v, list) else [v]
+        vals = v if isinstance(v, (list, tuple)) else [v]
         for c in vals:
             if c != "$player" and not HEX.match(str(c)):
                 errs.append(f"{sid}: palette.{k} is not a #rrggbb colour")
@@ -82,6 +85,21 @@ def validate(m: dict[str, Any], recipes: dict[str, Any], filename: str | None = 
         for bg in pal.get("bg", []):
             if HEX.match(str(pal.get("text", ""))) and HEX.match(str(bg)) and contrast(pal["text"], bg) < 4.5:
                 errs.append(f"{sid}: text contrast {contrast(pal['text'], bg):.2f} on {bg} is under 4.5")
+    elif kind == "weapon":
+        if m.get("style") not in recipes["weapon_style"]:
+            errs.append(f"{sid}: unknown weapon style {m.get('style')!r}")
+        if m.get("status") not in recipes["weapon_status"]:
+            errs.append(f"{sid}: unknown weapon status {m.get('status')!r}")
+        levels = m.get("levels") or {}
+        if tuple(levels) != LEVEL_KEYS or not all(isinstance(v, str) and v for v in levels.values()):
+            errs.append(f"{sid}: levels must name easy, normal, medium and tough in that order")
+        if len(pal.get("ramp") or []) != 5:
+            errs.append(f"{sid}: palette.ramp needs 5 colours")
+        for k in ("metal", "accent"):
+            if k not in pal:
+                errs.append(f"{sid}: palette.{k} is required")
+        if not isinstance(m.get("card_colors"), bool):
+            errs.append(f"{sid}: card_colors must be true or false")
     elif kind == "avatar":
         for o in m.get("overlays", []):
             if o.get("sprite") not in recipes["overlay"] or o.get("anchor") not in ("head", "back", "hand"):

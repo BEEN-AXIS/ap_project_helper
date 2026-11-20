@@ -12,7 +12,10 @@ export default function VfxLab() {
   const [, setReg] = useState(0);
   useEffect(() => onRegistry(() => setReg((x) => x + 1)), []);
   const cards = allSkins().filter((s) => s.kind === "card");
+  const weapons = allSkins().filter((s) => s.kind === "weapon");
   const [skin, setSkin] = useState("card.classic");
+  const [weapon, setWeapon] = useState("weapon.fireball");
+  const [level, setLevel] = useState<number | "class">("class");
   const [cls, setCls] = useState<DamageClass>("heavy");
   const [crit, setCrit] = useState(false);
   const [side, setSide] = useState<1 | 2>(1);
@@ -23,7 +26,7 @@ export default function VfxLab() {
   const [stats, setStats] = useState({ fps: 0, particles: 0, quality: "high" });
   const { s, set } = useSettings();
   const arena = useRef<ArenaHandle | null>(null);
-  const state = useMemo(() => dummyState({ cardSkin: skin, hp1, hp2 }), [skin, hp1, hp2]);
+  const state = useMemo(() => dummyState({ cardSkin: skin, weapon, hp1, hp2 }), [skin, weapon, hp1, hp2]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -46,11 +49,12 @@ export default function VfxLab() {
     const def = side === 1 ? 2 : 1;
     const defHp = def === 1 ? hp1 : hp2;
     const dmg = AMOUNTS[cls];
-    if (outcome === "hit") d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: Math.max(1, defHp - dmg) }));
-    if (outcome === "ko") d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: 0 }));
+    const lv = level === "class" ? undefined : level;
+    if (outcome === "hit") d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: Math.max(1, defHp - dmg), level: lv }));
+    if (outcome === "ko") d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: 0, level: lv }));
     if (outcome === "blocked") {
       d.play(fakeShield(def));
-      window.setTimeout(() => d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: defHp, blocked: true })), 400);
+      window.setTimeout(() => d.play(fakeAttack({ attacker: side, damage: dmg, cls, crit, defenderHp: defHp, blocked: true, level: lv })), 400);
     }
     if (outcome === "backfire") d.play(fakeBackfire(side, dmg / 2, cls, Math.max(1, (side === 1 ? hp1 : hp2) - dmg / 2)));
     if (outcome === "selfdestruct") d.play(fakeBackfire(side, dmg / 2, cls, 0));
@@ -62,7 +66,7 @@ export default function VfxLab() {
     <div className="mx-auto max-w-6xl space-y-3 p-4" data-testid="vfx-lab">
       <h1 className="pixel text-xs text-green-400">VFX LAB (dummy fighters, fake events)</h1>
       <div className="h-[55vh] overflow-hidden rounded-xl border-2 border-slate-700">
-        <ArenaView key={skin} state={state} subscribe={NO_EVENTS} onReady={(h) => (arena.current = h)} />
+        <ArenaView key={`${skin}:${weapon}`} state={state} subscribe={NO_EVENTS} onReady={(h) => (arena.current = h)} />
       </div>
       <div className="panel grid gap-3 p-3 text-sm md:grid-cols-4">
         <label className="flex flex-col gap-1">
@@ -71,6 +75,27 @@ export default function VfxLab() {
             {cards.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          Weapon
+          <select className="rounded bg-slate-900 p-1" value={weapon} onChange={(e) => setWeapon(e.target.value)} data-testid="lab-weapon">
+            {weapons.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          Card difficulty
+          <select className="rounded bg-slate-900 p-1" value={String(level)} onChange={(e) => setLevel(e.target.value === "class" ? "class" : Number(e.target.value))} data-testid="lab-level">
+            <option value="class">From damage class</option>
+            {["Easy", "Normal", "Medium", "Tough"].map((n, i) => (
+              <option key={n} value={i}>
+                {n}
               </option>
             ))}
           </select>

@@ -57,6 +57,13 @@ def hand_window(player_tier: int, cfg: GameConfig) -> list[int]:
     return [lo + i for i in range(h.size)]
 
 
+def difficulty_level(player_tier: int, problem_tier: int, cfg: GameConfig) -> int:
+    """A card's place in the player's hand window: 0 easy, 1 normal, 2 medium, 3 tough.
+    Cosmetic only (it picks the attack animation); damage comes from the tier difference."""
+    lo = hand_window(player_tier, cfg)[0]
+    return max(0, min(cfg.hand.size - 1, problem_tier - lo))
+
+
 def deck_rng(seed: int, tier: int) -> random.Random:
     # Python's Random takes one seed; a string "seed:tier" is hashed
     # deterministically (version-2 seeding), so decks are stable across runs.

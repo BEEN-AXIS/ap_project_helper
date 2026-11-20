@@ -10,7 +10,7 @@ from app.core.errors import AppError
 from app.domain.gameconfig import GameConfig
 from app.domain.tiers import get_tier
 from app.models import Achievement, Inventory, Profile, Purchase
-from app.skins.registry import DEFAULTS, load_registry
+from app.skins.registry import DEFAULTS, KINDS, load_registry
 
 
 def owned(s: Session, profile_id: int) -> set[str]:
@@ -77,8 +77,8 @@ def buy(s: Session, prof: Profile, skin_id: str, idem_key: str) -> dict[str, Any
 
 
 def equip(s: Session, prof: Profile, kind: str, skin_id: str | None) -> dict[str, Any]:
-    if kind not in ("card", "avatar", "arena"):
-        raise AppError("validation", "kind must be card, avatar or arena")
+    if kind not in KINDS:
+        raise AppError("validation", "kind must be card, avatar, arena or weapon")
     if skin_id is not None:
         m = load_registry().get(skin_id)
         if m is None or m["kind"] != kind:
@@ -89,7 +89,14 @@ def equip(s: Session, prof: Profile, kind: str, skin_id: str | None) -> dict[str
         prof.equipped_card = skin_id or DEFAULTS["card"]
     elif kind == "avatar":
         prof.equipped_avatar = skin_id or DEFAULTS["avatar"]
+    elif kind == "weapon":
+        prof.equipped_weapon = skin_id or DEFAULTS["weapon"]
     else:
         prof.equipped_arena = skin_id
     s.add(prof)
-    return {"card": prof.equipped_card, "avatar": prof.equipped_avatar, "arena": prof.equipped_arena}
+    return equipped_of(prof)
+
+
+def equipped_of(prof: Profile) -> dict[str, str | None]:
+    return {"card": prof.equipped_card, "avatar": prof.equipped_avatar, "arena": prof.equipped_arena,
+            "weapon": prof.equipped_weapon}

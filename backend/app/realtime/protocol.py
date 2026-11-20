@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 DamageClass = Literal["light", "heavy", "massive", "nuke"]
 Scenario = Literal["heroic", "brave", "ambitious", "stretching", "on_level", "safe", "lazy", "cowardly", "pathetic"]
@@ -25,6 +25,7 @@ class Skins(BaseModel):
     card: str | None = None
     avatar: str | None = None
     arena: str | None = None
+    weapon: str | None = None
     color: str | None = None
     personality: str | None = None
 
@@ -82,6 +83,7 @@ class Card(M):
     slot: int
     tier: int
     pending: bool
+    level: int = Field(0, ge=0, le=3, description="0 easy, 1 normal, 2 medium, 3 tough (animation only)")
     problem: ProblemRef | None = None
     preview: Preview | None = None
     hints_revealed: int = 0
@@ -264,6 +266,7 @@ class AttackLanded(M):
     defender_hp: int
     attacker_damage_dealt: int
     hits_landed: int
+    level: int = Field(0, ge=0, le=3)
 
 
 class AttackBlocked(M):
@@ -275,6 +278,7 @@ class AttackBlocked(M):
     scenario: Scenario
     problem: str
     hits_landed: int
+    level: int = Field(0, ge=0, le=3)
 
 
 class AttackBackfire(M):
@@ -286,6 +290,7 @@ class AttackBackfire(M):
     attacker_hp: int
     crit: bool
     scenario: Scenario
+    level: int = Field(0, ge=0, le=3)
 
 
 class PowerupUsed(M):

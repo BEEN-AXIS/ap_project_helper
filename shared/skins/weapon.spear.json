@@ -1,0 +1,33 @@
+{
+  "id": "weapon.spear",
+  "kind": "weapon",
+  "name": "Spear",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "style": "spear",
+  "description": "Thrown steel. Tough cards call down a golden spear that splits the ground.",
+  "levels": {
+    "easy": "Javelin",
+    "normal": "Wind Spear",
+    "medium": "Spear Rain",
+    "tough": "Godspear"
+  },
+  "palette": {
+    "metal": "#cbd5e1",
+    "accent": "#facc15",
+    "ramp": [
+      "#ffffff",
+      "#fef9c3",
+      "#facc15",
+      "#a16207",
+      "#1c1917"
+    ]
+  },
+  "card_colors": false,
+  "status": "none",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

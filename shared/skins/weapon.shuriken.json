@@ -1,0 +1,34 @@
+{
+  "id": "weapon.shuriken",
+  "kind": "weapon",
+  "name": "Shuriken",
+  "rarity": "rare",
+  "unlock": {
+    "type": "ap",
+    "price": 300
+  },
+  "style": "shuriken",
+  "description": "Spinning steel stars; the tough form leaves slash marks across the target.",
+  "levels": {
+    "easy": "Throwing Star",
+    "normal": "Star Fan",
+    "medium": "Orbiting Blades",
+    "tough": "Giant Pinwheel"
+  },
+  "palette": {
+    "metal": "#94a3b8",
+    "accent": "#e879f9",
+    "ramp": [
+      "#ffffff",
+      "#f5d0fe",
+      "#e879f9",
+      "#a21caf",
+      "#2e1065"
+    ]
+  },
+  "card_colors": false,
+  "status": "none",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

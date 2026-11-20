@@ -1,0 +1,33 @@
+{
+  "id": "weapon.arrows",
+  "kind": "weapon",
+  "name": "Longbow",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "style": "arrows",
+  "description": "A bow that ends in a sky full of burning arrows.",
+  "levels": {
+    "easy": "Single Arrow",
+    "normal": "Double Shot",
+    "medium": "Arrow Volley",
+    "tough": "Fire Arrow Storm"
+  },
+  "palette": {
+    "metal": "#78350f",
+    "accent": "#4ade80",
+    "ramp": [
+      "#fff7d6",
+      "#fde68a",
+      "#f59e0b",
+      "#b45309",
+      "#292524"
+    ]
+  },
+  "card_colors": false,
+  "status": "none",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

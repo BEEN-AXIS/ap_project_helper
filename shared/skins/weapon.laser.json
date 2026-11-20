@@ -1,0 +1,34 @@
+{
+  "id": "weapon.laser",
+  "kind": "weapon",
+  "name": "Laser Cannon",
+  "rarity": "epic",
+  "unlock": {
+    "type": "tier",
+    "tier": 3
+  },
+  "style": "laser",
+  "description": "Beams instead of projectiles. Tough cards fire from orbit.",
+  "levels": {
+    "easy": "Pulse",
+    "normal": "Sweep Beam",
+    "medium": "Twin Beams",
+    "tough": "Orbital Strike"
+  },
+  "palette": {
+    "metal": "#334155",
+    "accent": "#22d3ee",
+    "ramp": [
+      "#ffffff",
+      "#cffafe",
+      "#22d3ee",
+      "#0e7490",
+      "#082f49"
+    ]
+  },
+  "card_colors": false,
+  "status": "burning",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

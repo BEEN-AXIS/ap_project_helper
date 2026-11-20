@@ -30,7 +30,8 @@ async def my_skins(caller: Caller = Depends(current), ctx: AppContext = Depends(
         assert p is not None
         service.evaluate_unlocks(s, p, ctx.cfg)
         s.flush()
-        return {"points": p.points, "equipped": {"card": p.equipped_card, "avatar": p.equipped_avatar, "arena": p.equipped_arena},
+        return {"points": p.points, "equipped": {"card": p.equipped_card, "avatar": p.equipped_avatar, "arena": p.equipped_arena,
+                     "weapon": p.equipped_weapon},
                 "skins": service.skin_list(s, p, ctx.cfg)}
 
     return await run_db(work)
@@ -53,7 +54,7 @@ async def buy(skin_id: str, body: BuyBody, caller: Caller = Depends(current)) ->
 
 class EquipBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["card", "avatar", "arena"]
+    kind: Literal["card", "avatar", "arena", "weapon"]
     skin_id: str | None = Field(default=None, max_length=48)
 
 

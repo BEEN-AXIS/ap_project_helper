@@ -1,0 +1,33 @@
+{
+  "id": "weapon.lightning",
+  "kind": "weapon",
+  "name": "Lightning",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "style": "lightning",
+  "description": "Electric arcs from your hand, then from the sky. Tough cards darken the arena.",
+  "levels": {
+    "easy": "Zap",
+    "normal": "Chain Lightning",
+    "medium": "Triple Strike",
+    "tough": "Thunderstorm"
+  },
+  "palette": {
+    "metal": "#1e3a8a",
+    "accent": "#7dd3fc",
+    "ramp": [
+      "#ffffff",
+      "#e0f2fe",
+      "#7dd3fc",
+      "#3b82f6",
+      "#1e1b4b"
+    ]
+  },
+  "card_colors": false,
+  "status": "shocked",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

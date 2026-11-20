@@ -14,13 +14,13 @@ export function renderMarkdown(md: string): string {
   const math: string[] = [];
   const stash = (tex: string, display: boolean) => {
     math.push(katex.renderToString(tex, { displayMode: display, throwOnError: false, output: "html" }));
-    return `\u0000${math.length - 1}\u0000`;
+    return `\uE000${math.length - 1}\uE000`;
   };
   let src = escapeHtml(md)
     .replace(/\$\$([\s\S]+?)\$\$/g, (_, t: string) => stash(unescape(t), true))
     .replace(/\$([^$\n]+?)\$/g, (_, t: string) => stash(unescape(t), false));
   let html = marked.parse(src, { async: false }) as string;
-  html = html.replace(/\u0000(\d+)\u0000/g, (_, i: string) => math[Number(i)]);
+  html = html.replace(/\uE000(\d+)\uE000/g, (_, i: string) => math[Number(i)]);
   src = "";
   return html;
 }

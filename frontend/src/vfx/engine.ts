@@ -8,13 +8,14 @@
  */
 import type { ArenaSkin } from "../skins/registry";
 import { Fighter } from "./fighters";
-import { ADDITIVE, glowSprite, Kind, noise, Particles, puffSprite, squareSprite } from "./particles";
+import { drawBeam, drawProp, drawReticle, drawShape, drawSlash, drawSpikes, type Beam, type ProjectileShape, type Prop, type Reticle, type Slash, type Spikes } from "./arsenal";
+import { ADDITIVE, debrisSprite, glowSprite, Kind, noise, Particles, puffSprite, squareSprite } from "./particles";
 import { HPBAR, NUMBER } from "./timings";
 
 export type Quality = "high" | "low" | "off";
 export const QUALITY: Record<Quality, { maxParticles: number; dprCap: number; smoke: boolean; decals: boolean }> = {
-  high: { maxParticles: 2000, dprCap: 2, smoke: true, decals: true },
-  low: { maxParticles: 600, dprCap: 1, smoke: false, decals: false },
+  high: { maxParticles: 4000, dprCap: 2, smoke: true, decals: true },
+  low: { maxParticles: 1200, dprCap: 1, smoke: false, decals: false },
   off: { maxParticles: 0, dprCap: 1, smoke: false, decals: false },
 };
 
@@ -27,13 +28,23 @@ export interface Projectile {
   dur: number;
   size: number;
   ramp: number;
-  style: string;
+  style: ProjectileShape | string;
   trail: number;
   trailStyle: string;
   done: boolean;
   onArrive?: () => void;
+  onStart?: () => void;
   pos: [number, number];
   warn?: boolean; // the defender's screen edge glows when it is within 200 px
+  /** arc: the classic raised curve; lob: a high arc; line: straight; drop: straight fall (meteors, rain) */
+  path?: "arc" | "lob" | "line" | "drop";
+  ease?: "in" | "linear" | "out";
+  delay?: number; // ms of game time before it leaves the hand
+  started?: boolean;
+  angle?: number; // direction of travel, kept for drawing
+  grow?: number; // ms to swell from nothing to full size (charging orbs)
+  metal?: string;
+  accent?: string;
 }
 
 interface FloatText {
@@ -164,10 +175,16 @@ export class Engine {
   fps = 60;
   private frameEma = 16.7;
   private slowFrames = 0;
-  particles = new Particles(2000);
+  particles = new Particles(4000);
   fighters: Record<1 | 2, Fighter> = { 1: new Fighter(), 2: new Fighter() };
   you: 1 | 2 = 1;
   projectiles: Projectile[] = [];
+  beams: Beam[] = [];
+  props: Prop[] = [];
+  spikes: Spikes[] = [];
+  slashes: Slash[] = [];
+  reticles: Reticle[] = [];
+  darken = { a: 0, t0: 0, dur: 0 };
   texts: FloatText[] = [];
   rings: Ring[] = [];
   decals: Decal[] = [];
@@ -367,9 +384,54 @@ export class Engine {
   }
 
   launch(p: Omit<Projectile, "done" | "pos" | "t0">): Projectile {
-    const proj: Projectile = { ...p, t0: this.gameTime, done: false, pos: [...p.from] as [number, number] };
+    const proj: Projectile = { ...p, t0: this.gameTime, done: false, pos: [...p.from] as [number, number], started: !p.delay };
     this.projectiles.push(proj);
+    if (!p.delay) p.onStart?.();
     return proj;
+  }
+
+  /** A beam from one point to another (lasers, lightning, orbital strikes). */
+  beam(b: Omit<Beam, "t0" | "seed"> & { delay?: number }): void {
+    this.beams.push({ ...b, t0: this.gameTime + (b.delay ?? 0), seed: Math.floor(Math.random() * 1e6) });
+  }
+
+  /** A held weapon shown at the fighter's hand for dur ms; kicks are ms offsets of each shot. */
+  prop(p: Omit<Prop, "t0" | "kicks"> & { kicks?: number[] }): void {
+    this.props = this.props.filter((x) => x.side !== p.side);
+    this.props.push({ ...p, t0: this.gameTime, kicks: (p.kicks ?? []).map((k) => this.gameTime + k) });
+  }
+
+  spike(sp: Omit<Spikes, "t0"> & { delay?: number }): void {
+    if (this.reduced) return;
+    this.spikes.push({ ...sp, t0: this.gameTime + (sp.delay ?? 0) });
+  }
+
+  slash(sl: Omit<Slash, "t0"> & { delay?: number }): void {
+    this.slashes.push({ ...sl, t0: this.gameTime + (sl.delay ?? 0) });
+  }
+
+  reticle(r: Omit<Reticle, "t0">): void {
+    this.reticles.push({ ...r, t0: this.gameTime });
+  }
+
+  /** Darken the arena behind the effects (storms, orbital strikes). */
+  dim(alpha: number, ms: number): void {
+    if (this.reduced) return;
+    this.darken = { a: alpha, t0: this.gameTime, dur: ms };
+  }
+
+  /** Drop every in-flight effect (previews switching weapons). */
+  clearEffects(): void {
+    this.projectiles = [];
+    this.beams = [];
+    this.props = [];
+    this.spikes = [];
+    this.slashes = [];
+    this.reticles = [];
+    this.rings = [];
+    this.texts = [];
+    this.darken = { a: 0, t0: 0, dur: 0 };
+    this.particles.clear();
   }
 
   setStatus(side: 1 | 2, kind: string, ms: number): void {
@@ -420,22 +482,50 @@ export class Engine {
   private updateProjectiles(dt: number): void {
     for (const p of this.projectiles) {
       if (p.done) continue;
-      const k = Math.min(1, (this.gameTime - p.t0) / p.dur);
-      const e = k * k * k; // cubic ease-in toward the target
+      const age = this.gameTime - p.t0 - (p.delay ?? 0);
+      if (age < 0) continue;
+      if (!p.started) {
+        p.started = true;
+        p.onStart?.();
+      }
+      const k = Math.min(1, age / p.dur);
+      const e = p.ease === "linear" ? k : p.ease === "out" ? 1 - (1 - k) ** 2 : k * k * k; // default: cubic ease-in
       const to = p.to();
       const dx = to[0] - p.from[0];
       const dy = to[1] - p.from[1];
       const dist = Math.hypot(dx, dy);
-      // quadratic Bezier with the control point raised by 18% of the distance
+      // quadratic Bezier; the control point is raised by a share of the distance
+      const raise = p.path === "line" || p.path === "drop" ? 0 : p.path === "lob" ? 0.5 : 0.18;
       const cx = p.from[0] + dx / 2;
-      const cy = p.from[1] + dy / 2 - dist * 0.18;
+      const cy = p.from[1] + dy / 2 - dist * raise;
       const u = 1 - e;
+      const prev = p.pos;
       p.pos = [u * u * p.from[0] + 2 * u * e * cx + e * e * to[0], u * u * p.from[1] + 2 * u * e * cy + e * e * to[1]];
-      if (this.quality !== "off" && !this.reduced) {
+      const mx = p.pos[0] - prev[0];
+      const my = p.pos[1] - prev[1];
+      if (Math.abs(mx) + Math.abs(my) > 0.01) p.angle = Math.atan2(my, mx);
+      else if (p.angle === undefined) p.angle = Math.atan2(dy, dx);
+      if (this.quality !== "off" && !this.reduced && p.trail > 0) {
         const n = Math.max(1, Math.round((p.trail * dt) / STEP));
+        const back = (p.angle ?? 0) + Math.PI;
         for (let i = 0; i < n; i++) {
-          const kind = p.trailStyle === "mist" ? Kind.Smoke : p.trailStyle === "bits" ? Kind.Glyph : p.trailStyle === "pixel" ? Kind.Square : Kind.Flame;
-          this.particles.spawn(kind, p.pos[0] + (Math.random() - 0.5) * p.size * 0.6, p.pos[1] + (Math.random() - 0.5) * p.size * 0.6, (Math.random() - 0.5) * 40, -20 - Math.random() * 40, 260 + Math.random() * 200, p.size * 0.6, p.size * 0.15, p.ramp, -30, 2);
+          const jx = (Math.random() - 0.5) * p.size * 0.6;
+          const jy = (Math.random() - 0.5) * p.size * 0.6;
+          const ts = p.trailStyle;
+          if (ts === "streak" || ts === "wind") {
+            const a = back + (Math.random() - 0.5) * 0.5;
+            const v = 220 + Math.random() * 260;
+            this.particles.spawn(Kind.Streak, p.pos[0] + jx, p.pos[1] + jy, Math.cos(a) * v, Math.sin(a) * v, 180 + Math.random() * 160, ts === "wind" ? 2 : Math.max(1.5, p.size * 0.12), 0.5, p.ramp, 0, 3);
+          } else if (ts === "smoke") {
+            this.particles.spawn(Kind.Smoke, p.pos[0] + jx, p.pos[1] + jy, (Math.random() - 0.5) * 30, -10 - Math.random() * 20, 700 + Math.random() * 500, p.size * 0.5, p.size * 1.6, p.ramp, -20, 1);
+            this.particles.spawn(Kind.Flame, p.pos[0] + jx * 0.3, p.pos[1] + jy * 0.3, Math.cos(back) * 80, Math.sin(back) * 80, 160, p.size * 0.5, p.size * 0.1, p.ramp, 0, 3);
+          } else if (ts === "embers") {
+            this.particles.spawn(Kind.Ember, p.pos[0] + jx, p.pos[1] + jy, (Math.random() - 0.5) * 60, -30 - Math.random() * 60, 500 + Math.random() * 500, Math.max(2, p.size * 0.18), 1, p.ramp, -60, 1);
+            this.particles.spawn(Kind.Flame, p.pos[0] + jx, p.pos[1] + jy, (Math.random() - 0.5) * 40, -20 - Math.random() * 40, 260 + Math.random() * 200, p.size * 0.6, p.size * 0.15, p.ramp, -30, 2);
+          } else if (ts !== "none") {
+            const kind = ts === "mist" ? Kind.Smoke : ts === "bits" ? Kind.Glyph : ts === "pixel" ? Kind.Square : Kind.Flame;
+            this.particles.spawn(kind, p.pos[0] + jx, p.pos[1] + jy, (Math.random() - 0.5) * 40, -20 - Math.random() * 40, 260 + Math.random() * 200, p.size * 0.6, p.size * 0.15, p.ramp, -30, 2);
+          }
         }
       }
       if (p.warn && Math.hypot(to[0] - p.pos[0], to[1] - p.pos[1]) < 200) this.edgeGlow = 1;
@@ -591,8 +681,34 @@ export class Engine {
         const color = ramp[Math.min(ramp.length - 1, Math.floor(f * (ramp.length - 1) + (k === Kind.Smoke ? 3 : 0)))];
         const size = P.s0[i] + (P.s1[i] - P.s0[i]) * f;
         g.globalAlpha = k === Kind.Smoke ? 0.35 * (1 - f) : 1 - f * f;
+        g.lineCap = "round";
         const x = P.x[i];
         const y = P.y[i];
+        if (k === Kind.Streak) {
+          const vx = P.vx[i];
+          const vy = P.vy[i];
+          g.strokeStyle = color;
+          g.lineWidth = size;
+          g.beginPath();
+          g.moveTo(x, y);
+          g.lineTo(x - vx * 0.045, y - vy * 0.045);
+          g.stroke();
+          continue;
+        }
+        if (k === Kind.Ember) {
+          g.globalAlpha *= 0.6 + 0.4 * Math.sin(P.life[i] / 30 + i);
+          g.drawImage(glowSprite(color), x - size, y - size, size * 2, size * 2);
+          continue;
+        }
+        if (k === Kind.Debris) {
+          g.save();
+          g.translate(x, y);
+          g.rotate(P.rot[i]);
+          g.globalAlpha = f > 0.8 ? (1 - f) * 5 : 1;
+          g.drawImage(debrisSprite(color), -size / 2, -size / 2, size, size);
+          g.restore();
+          continue;
+        }
         if (k === Kind.Glyph) {
           g.fillStyle = color;
           g.font = `${Math.max(6, size)}px monospace`;
@@ -616,11 +732,18 @@ export class Engine {
   }
 
   private drawProjectile(g: CanvasRenderingContext2D, p: Projectile): void {
+    if (!p.started) return;
     const [x, y] = p.pos;
     const ramp = this.ramps[p.ramp] ?? this.ramps[0];
-    const s = p.size;
+    const age = this.gameTime - p.t0 - (p.delay ?? 0);
+    const s = p.grow ? p.size * Math.min(1, Math.max(0.05, age / p.grow)) : p.size;
     if (this.reduced) {
       g.drawImage(glowSprite(ramp[1]), x - 8, y - 8, 16, 16);
+      return;
+    }
+    if (drawShape(g, p.style as ProjectileShape, x, y, s, p.angle ?? 0, ramp, this.gameTime, p.metal, p.accent)) {
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = "source-over";
       return;
     }
     g.globalCompositeOperation = "lighter";
@@ -735,6 +858,16 @@ export class Engine {
     const g = this.fx.getContext("2d")!;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
+    const dk = this.darken.dur ? (this.gameTime - this.darken.t0) / this.darken.dur : 1;
+    if (dk < 1 && this.darken.a > 0) {
+      const env = Math.min(1, dk / 0.12) * (dk > 0.7 ? (1 - dk) / 0.3 : 1);
+      g.globalAlpha = this.darken.a * env;
+      g.fillStyle = "#020617";
+      g.fillRect(0, 0, this.W, this.H);
+      g.globalAlpha = 1;
+    }
+    for (const r of this.reticles) drawReticle(g, r, this.gameTime);
+    this.reticles = this.reticles.filter((r) => this.gameTime - r.t0 < r.dur);
     // decals on the floor
     for (const d of this.decals) {
       const k = (this.gameTime - d.t0) / d.dur;
@@ -803,8 +936,19 @@ export class Engine {
         g.globalCompositeOperation = "source-over";
       }
     }
+    for (const p of this.props) {
+      const f = this.fighters[p.side];
+      drawProp(g, p, f.anchors.muzzle[0], f.anchors.muzzle[1], f.facing, this.gameTime);
+    }
+    this.props = this.props.filter((p) => this.gameTime - p.t0 < p.dur);
+    for (const sp of this.spikes) drawSpikes(g, sp, this.gameTime);
+    this.spikes = this.spikes.filter((sp) => this.gameTime - sp.t0 < sp.dur);
     this.drawParticles(g);
     for (const p of this.projectiles) this.drawProjectile(g, p);
+    for (const b of this.beams) drawBeam(g, b, this.gameTime, this.ramps[b.ramp] ?? this.ramps[0]);
+    this.beams = this.beams.filter((b) => this.gameTime - b.t0 < b.dur);
+    for (const sl of this.slashes) drawSlash(g, sl, this.gameTime);
+    this.slashes = this.slashes.filter((sl) => this.gameTime - sl.t0 < sl.dur);
     // shockwave rings
     for (const r of this.rings) {
       const k = (this.gameTime - r.t0) / r.dur;

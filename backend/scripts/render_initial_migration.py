@@ -1,5 +1,8 @@
 """Render alembic/versions/0001_initial.py from the SQLModel metadata.
 
+Historical: 0001 is the schema as first shipped. Later changes are new
+revisions (0002_equipped_weapon, ...), so do not re-render 0001 now.
+
 Alembic's own autogenerate does the same job once alembic is installed
 (`alembic revision --autogenerate -m "..."`); this script exists so the
 baseline migration is reproducible without a database.

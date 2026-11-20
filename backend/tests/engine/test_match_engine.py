@@ -35,6 +35,21 @@ async def test_hit_lands_on_both_screens_and_card_is_redealt(make_arena):
     assert not a.ws[2].of("card.dealt")  # the opponent never sees your hand
 
 
+async def test_cards_and_attacks_carry_their_difficulty_level(make_arena):
+    """The level names the animation (easy, normal, medium, tough); both screens get it."""
+    a = await make_arena()
+    hand = a.actor.hand_view(1)
+    assert sorted(c["level"] for c in hand) == [0, 1, 2, 3]
+    tough = next(c["slot"] for c in hand if c["level"] == 3)
+    easy = next(c["slot"] for c in hand if c["level"] == 0)
+    await a.submit_and_judge(1, easy, "WA 1")
+    assert a.ws[2].last("attack.backfire")["data"]["level"] == 0
+    await a.advance(4)
+    await a.submit_and_judge(1, tough, "AC")  # a tough card can be a one-shot KO
+    landed = a.ws[2].last("attack.landed")["data"]
+    assert landed["level"] == 3 and landed == a.ws[1].last("attack.landed")["data"]
+
+
 async def test_backfire_costs_recoil_and_keeps_the_card(make_arena):
     a = await make_arena()
     s = a.slot_with_tier(1, 2)

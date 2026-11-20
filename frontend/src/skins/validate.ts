@@ -14,6 +14,8 @@ export interface Recipes {
   overlay: string[];
   layer: string[];
   rarity: string[];
+  weapon_style: string[];
+  weapon_status: string[];
   max_particle_rate: number;
 }
 
@@ -36,8 +38,8 @@ export function validateManifest(m: any, recipes: Recipes, filename?: string): s
   const e: string[] = [];
   const id = m?.id ?? "?";
   if (filename && filename !== `${id}.json`) e.push(`${filename}: file must be named after its id`);
-  const prefix: Record<string, string> = { card: "card.", avatar: "bean.", arena: "arena." };
-  if (!prefix[m?.kind]) e.push(`${id}: kind must be card, avatar or arena`);
+  const prefix: Record<string, string> = { card: "card.", avatar: "bean.", arena: "arena.", weapon: "weapon." };
+  if (!prefix[m?.kind]) e.push(`${id}: kind must be card, avatar, arena or weapon`);
   else if (!String(id).startsWith(prefix[m.kind])) e.push(`${id}: id prefix does not match kind`);
   if (!recipes.rarity.includes(m?.rarity)) e.push(`${id}: unknown rarity`);
   const u = m?.unlock ?? {};
@@ -63,6 +65,14 @@ export function validateManifest(m: any, recipes: Recipes, filename?: string): s
     for (const bg of m.palette?.bg ?? []) {
       if (HEX.test(m.palette.text) && HEX.test(bg) && contrast(m.palette.text, bg) < 4.5) e.push(`${id}: text contrast under 4.5 on ${bg}`);
     }
+  } else if (m?.kind === "weapon") {
+    if (!recipes.weapon_style.includes(m.style)) e.push(`${id}: unknown weapon style ${m.style}`);
+    if (!recipes.weapon_status.includes(m.status)) e.push(`${id}: unknown weapon status ${m.status}`);
+    const keys = Object.keys(m.levels ?? {});
+    if (keys.join() !== "easy,normal,medium,tough" || !Object.values(m.levels ?? {}).every((v) => typeof v === "string" && v)) e.push(`${id}: levels must name easy, normal, medium and tough in that order`);
+    if (m.palette?.ramp?.length !== 5) e.push(`${id}: palette.ramp needs 5 colours`);
+    for (const k of ["metal", "accent"]) if (!(k in (m.palette ?? {}))) e.push(`${id}: palette.${k} is required`);
+    if (typeof m.card_colors !== "boolean") e.push(`${id}: card_colors must be true or false`);
   } else if (m?.kind === "avatar") {
     for (const o of m.overlays ?? []) {
       if (!recipes.overlay.includes(o.sprite) || !["head", "back", "hand"].includes(o.anchor)) e.push(`${id}: bad overlay ${JSON.stringify(o)}`);

@@ -19,7 +19,8 @@ def profile_public(p: Profile, cfg: GameConfig) -> dict[str, Any]:
         "tier": tier, "tier_title": cfg.tier_row(tier).title, "max_hp": cfg.tier_row(tier).max_hp,
         "next_tier": ({"tier": nxt.tier, "title": nxt.title, "min_rating": nxt.min_rating, "max_hp": nxt.max_hp} if nxt else None),
         "wins": p.wins, "losses": p.losses, "draws": p.draws, "avatar_color": p.avatar_color,
-        "equipped": {"card": p.equipped_card, "avatar": p.equipped_avatar, "arena": p.equipped_arena},
+        "equipped": {"card": p.equipped_card, "avatar": p.equipped_avatar, "arena": p.equipped_arena,
+                     "weapon": p.equipped_weapon},
         "badges": list(p.badges or []), "is_bot": p.is_bot,
     }
 

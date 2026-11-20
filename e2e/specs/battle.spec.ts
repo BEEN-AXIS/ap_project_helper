@@ -54,6 +54,12 @@ test("ranked match: hit, backfire, block, KO and result on both screens", async 
   await expect(a.locator('[data-testid="battle"][data-status="live"]')).toBeVisible({ timeout: 20_000 });
   await expect(b.locator('[data-testid="battle"][data-status="live"]')).toBeVisible({ timeout: 20_000 });
 
+  // Every card names its difficulty, which picks the weapon animation.
+  for (const p of [a, b]) {
+    const levels = await p.locator('[data-testid^="card-level-"]').allTextContents();
+    expect(levels.sort()).toEqual(["EASY", "MEDIUM", "NORMAL", "TOUGH"]);
+  }
+
   // 1. Alice runs the samples, then lands an on-level hit (8,000 at tier 2).
   await openCard(a, 2);
   await a.evaluate(() => window.__algoarena!.setCode("# VERDICT: AC\n# DELAY_MS: 40\nprint('fire')\n"));
@@ -94,6 +100,21 @@ test("ranked match: hit, backfire, block, KO and result on both screens", async 
 
   const steps = await a.evaluate(() => (window.__vfx?.events ?? []).map((e) => `${e.show}:${e.step}`));
   for (const s of ["hit:impact", "backfire:explosion", "block:impact", "ko-hit:ko"]) expect(steps).toContain(s);
+  expect(errors).toEqual([]);
+});
+
+test("the weapons locker equips a weapon and previews all four forms", async ({ browser }) => {
+  const errors: string[] = [];
+  const p = await signIn(browser, "bob", "bob-pass", errors);
+  await p.goto("/locker");
+  await p.getByTestId("tab-weapon").click();
+  await p.getByTestId("skin-weapon.gun").click();
+  for (let i = 0; i < 4; i++) {
+    await p.getByTestId(`preview-level-${i}`).click();
+    await p.waitForTimeout(400);
+  }
+  await p.getByTestId("equip").click();
+  await expect(p.getByTestId("skin-weapon.gun").getByText("Equipped")).toBeVisible();
   expect(errors).toEqual([]);
 });
 

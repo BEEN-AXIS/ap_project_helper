@@ -28,6 +28,77 @@ export const sfx = {
       synth.noise({ dur: 1.4, type: "lowpass", f0: 900, f1: 80, gain: 0.15, delay: 0.1 });
     }
   },
+  // ---- weapons: level 0..3 is easy..tough; louder and lower as it grows
+  gunshot(level = 0) {
+    if (!synth.begin("gunshot")) return;
+    synth.noise({ dur: 0.07 + level * 0.02, type: "bandpass", f0: 2400 - level * 300, q: 0.7, gain: 0.32 });
+    synth.tone({ type: "square", f0: 180, f1: 60, dur: 0.06, gain: 0.12 });
+  },
+  rocket(sec: number) {
+    if (!synth.begin("rocket")) return;
+    synth.noise({ dur: sec + 0.2, type: "lowpass", f0: 600, f1: 2400, gain: 0.25 });
+    synth.tone({ type: "sawtooth", f0: 80, f1: 160, dur: sec, gain: 0.06 });
+  },
+  spinUp(sec: number) {
+    if (!synth.begin("spinup")) return;
+    synth.tone({ type: "sawtooth", f0: 60, f1: 420, dur: sec, gain: 0.06 });
+  },
+  lockOn(sec: number) {
+    if (!synth.begin("lockon")) return;
+    const beeps = Math.max(2, Math.round(sec / 0.12));
+    for (let i = 0; i < beeps; i++) synth.tone({ type: "square", f0: 1400 + i * 60, dur: 0.04, gain: 0.07, delay: i * (sec / beeps) });
+  },
+  whoosh(sec: number, level = 0) {
+    if (!synth.begin("whoosh")) return;
+    synth.noise({ dur: sec + 0.05, type: "bandpass", f0: 400, f1: 2600 + level * 400, q: 1.4, gain: 0.18 + level * 0.04 });
+  },
+  fwoosh(sec: number, level = 0) {
+    if (!synth.begin("fwoosh")) return;
+    synth.noise({ dur: sec + 0.1, type: "lowpass", f0: 900 + level * 300, f1: 300, gain: 0.2 + level * 0.06 });
+    synth.tone({ f0: 160 - level * 25, f1: 70, dur: sec, gain: 0.1 + level * 0.04 });
+  },
+  twang(level = 0) {
+    if (!synth.begin("twang")) return;
+    synth.tone({ type: "triangle", f0: 330, f1: 220, dur: 0.18, gain: 0.16 });
+    if (level >= 2) for (let i = 0; i < 4 + level * 2; i++) synth.noise({ dur: 0.05, type: "highpass", f0: 2500, gain: 0.08, delay: 0.04 + i * 0.03 });
+  },
+  zap(sec: number, level = 0) {
+    if (!synth.begin("zap")) return;
+    synth.noise({ dur: Math.max(0.08, sec), type: "highpass", f0: 1800, gain: 0.16 + level * 0.05 });
+    synth.tone({ type: "sawtooth", f0: 900 - level * 150, f1: 120, dur: Math.max(0.1, sec * 0.7), gain: 0.1 });
+    if (level >= 2) synth.tone({ f0: 55, f1: 30, dur: 0.9, gain: 0.35, delay: sec });
+  },
+  laser(sec: number, level = 0) {
+    if (!synth.begin("laser")) return;
+    synth.tone({ type: "sawtooth", f0: 1600 - level * 300, f1: 300, dur: sec, gain: 0.08 + level * 0.03 });
+    synth.tone({ type: "sine", f0: 120, f1: 90, dur: sec, gain: 0.12 });
+  },
+  charge(sec: number) {
+    if (!synth.begin("charge")) return;
+    synth.tone({ type: "triangle", f0: 200, f1: 1200, dur: Math.max(0.1, sec), gain: 0.07 });
+  },
+  rumble(sec: number) {
+    if (!synth.begin("rumble")) return;
+    synth.noise({ dur: Math.max(0.2, sec), type: "lowpass", f0: 140, f1: 60, gain: 0.3 });
+  },
+  thud(level = 0) {
+    if (!synth.begin("thud")) return;
+    synth.tone({ f0: 90 - level * 10, f1: 40, dur: 0.14 + level * 0.05, gain: 0.3 });
+  },
+  clang(level = 0) {
+    if (!synth.begin("clang")) return;
+    synth.tone({ type: "triangle", f0: 1800 - level * 200, f1: 900, dur: 0.25, gain: 0.12 });
+    synth.tone({ type: "square", f0: 2600, f1: 1400, dur: 0.08, gain: 0.05 });
+  },
+  pop() {
+    if (!synth.begin("pop")) return;
+    synth.noise({ dur: 0.18, type: "lowpass", f0: 1400, f1: 200, gain: 0.25 });
+  },
+  boom(level = 3) {
+    if (!synth.begin("boom")) return;
+    synth.tone({ f0: 70, f1: 22, dur: 0.8 + level * 0.15, gain: 0.5 });
+    synth.noise({ dur: 1 + level * 0.2, type: "lowpass", f0: 1200, f1: 60, gain: 0.3 });
+  },
   crit() {
     if (!synth.begin("crit")) return;
     synth.arpeggio([880, 1760], 0.07, "square", 0.12);

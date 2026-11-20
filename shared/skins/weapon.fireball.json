@@ -1,0 +1,33 @@
+{
+  "id": "weapon.fireball",
+  "kind": "weapon",
+  "name": "Fireball",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "style": "fireball",
+  "description": "Takes your card's element. Grows from a spark to a sun that leaves the floor scorched.",
+  "levels": {
+    "easy": "Ember",
+    "normal": "Fireball",
+    "medium": "Triple Fireball",
+    "tough": "Inferno Sun"
+  },
+  "palette": {
+    "metal": "#78350f",
+    "accent": "#fb923c",
+    "ramp": [
+      "#fff7d6",
+      "#ffd23f",
+      "#ff7a1a",
+      "#d62718",
+      "#2a1a1a"
+    ]
+  },
+  "card_colors": true,
+  "status": "burning",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

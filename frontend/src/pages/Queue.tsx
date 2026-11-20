@@ -41,27 +41,29 @@ export default function Queue() {
       path: "/ws/lobby",
       scope: "lobby",
       onMessage: (m) => {
+        // Lobby events are not part of the match protocol union, so compare as strings.
+        const type: string = m.type;
         const d = m.data as any;
-        if (m.type === "hello" && d.queue) {
+        if (type === "hello" && d.queue) {
           // A match may have been found before this socket connected.
           if (d.queue.state === "proposal") {
             setFound({ proposal_id: d.queue.proposal_id, expires_in: d.queue.expires_in, map: d.queue.map, opponent: d.queue.opponent, at: Date.now() });
             setAccepted(!!d.queue.accepted);
           } else setQ(d.queue);
         }
-        if (m.type === "queue.tick" || m.type === "queue.joined") {
+        if (type === "queue.tick" || type === "queue.joined") {
           setQ(d);
           if (d.requeued) {
             setFound(null);
             setAccepted(false);
           }
         }
-        if (m.type === "match.found") {
+        if (type === "match.found") {
           setFound({ ...d, at: Date.now() });
           setAccepted(false);
         }
-        if (m.type === "match.ready") navigate(`/battle/${d.match_id}`);
-        if (m.type === "queue.cooldown") {
+        if (type === "match.ready") navigate(`/battle/${d.match_id}`);
+        if (type === "queue.cooldown") {
           setFound(null);
           setCooldown(Date.now() + d.seconds * 1000);
         }

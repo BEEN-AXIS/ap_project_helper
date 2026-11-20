@@ -343,3 +343,17 @@ def test_domain_package_has_no_io_clock_or_db_imports() -> None:
             if isinstance(node, ast.Attribute) and node.attr in ("now", "utcnow", "time"):
                 if isinstance(node.value, ast.Name) and node.value.id in ("datetime", "time"):
                     raise AssertionError(f"{py.name} reads the clock")
+
+
+def test_difficulty_level_is_the_cards_place_in_the_hand_window() -> None:
+    """0 easy .. 3 tough. It only picks the animation; damage still comes from tier_diff."""
+    from app.domain.hand import difficulty_level, hand_window
+
+    cfg = load_game_config_file()
+    for player_tier in range(1, 6):
+        window = hand_window(player_tier, cfg)
+        assert [difficulty_level(player_tier, t, cfg) for t in window] == [0, 1, 2, 3]
+    assert difficulty_level(1, 1, cfg) == 0 and difficulty_level(1, 4, cfg) == 3
+    assert difficulty_level(5, 2, cfg) == 0 and difficulty_level(5, 5, cfg) == 3
+    assert difficulty_level(3, 1, cfg) == 0  # below the window clamps to easy
+    assert cfg.hand.levels == ["easy", "normal", "medium", "tough"]

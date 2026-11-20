@@ -8,10 +8,12 @@ import { sfx } from "../../audio/sfx";
 import { t } from "../../i18n";
 import { fmt, tierColor } from "../../lib/format";
 import type { Card } from "../../net/protocol.generated";
-import { cardSkin, cardVars } from "../../skins/registry";
+import { cardSkin, cardVars, weaponSkin } from "../../skins/registry";
 import { prefersReducedMotion } from "../../state/settings";
 
 const BIOME_ICON: Record<string, string> = { bit: "⊕", binary: "⌕", general: "◆" };
+export const LEVEL_KEYS = ["easy", "normal", "medium", "tough"] as const;
+export const LEVEL_STYLE = ["bg-emerald-500 text-emerald-950", "bg-sky-400 text-sky-950", "bg-amber-400 text-amber-950", "bg-red-500 text-white"];
 
 interface Props {
   card: Card;
@@ -26,9 +28,10 @@ interface Props {
   disabled?: boolean;
   dealKey?: string | number;
   igniting?: boolean;
+  weaponId?: string;
 }
 
-export function CardView({ card, skinId, playerTier, myHp, oppHp, oppShield, hasDraft, index, onOpen, disabled, dealKey, igniting }: Props) {
+export function CardView({ card, skinId, playerTier, myHp, oppHp, oppShield, hasDraft, index, onOpen, disabled, dealKey, igniting, weaponId }: Props) {
   const skin = cardSkin(skinId);
   const ref = useRef<HTMLButtonElement>(null);
   const [tilt, setTilt] = useState<{ x: number; y: number; a: number } | null>(null);
@@ -41,6 +44,10 @@ export function CardView({ card, skinId, playerTier, myHp, oppHp, oppShield, has
     );
   }
   const pv = card.preview;
+  const level = Math.max(0, Math.min(3, card.level ?? 0));
+  const levelKey = LEVEL_KEYS[level];
+  const weapon = weaponSkin(weaponId);
+  const levelTitle = t("card.level_title", { level: t(`level.${levelKey}`), weapon: weapon.name, form: weapon.levels[levelKey] });
   const lethalRisk = pv.recoil >= myHp && myHp > 0;
   const koChance = pv.damage >= oppHp && !oppShield && oppHp > 0;
   const holo = card.tier >= 4;
@@ -80,7 +87,7 @@ export function CardView({ card, skinId, playerTier, myHp, oppHp, oppShield, has
       onPointerMove={onMove}
       onPointerLeave={() => setTilt(null)}
       title={math}
-      aria-label={`${card.problem.title}, ${t(`scenario.${pv.scenario}`)}, ${t("card.hit")} ${fmt(pv.damage)}, ${t("card.backfire")} ${fmt(pv.recoil)}. ${math}`}
+      aria-label={`${card.problem.title}, ${t(`level.${levelKey}`)}, ${t(`scenario.${pv.scenario}`)}, ${t("card.hit")} ${fmt(pv.damage)}, ${t("card.backfire")} ${fmt(pv.recoil)}. ${math}`}
       className={`card-tile group flex h-full w-full flex-col p-2.5 text-left ${skin.frame.style === "terminal" ? "card-scanlines" : ""} ${holo ? "card-holo" : ""} ${igniting ? "card-ignite" : "card-deal"}`}
       style={style}
     >
@@ -90,6 +97,9 @@ export function CardView({ card, skinId, playerTier, myHp, oppHp, oppShield, has
           T{card.tier} · {t(`scenario.${pv.scenario}`)}
         </span>
         <span className="flex gap-1">
+          <span className={`pixel rounded px-1 py-0.5 text-[7px] ${LEVEL_STYLE[level]}`} title={levelTitle} data-testid={`card-level-${card.slot}`}>
+            {t(`level.${levelKey}`).toUpperCase()}
+          </span>
           {pv.crit && <span className="pixel rounded bg-yellow-400 px-1 py-0.5 text-[7px] text-yellow-950">{t("card.crit")}</span>}
           {koChance && (
             <span title={t("card.ko_chance")} aria-label={t("card.ko_chance")} className="text-sm">

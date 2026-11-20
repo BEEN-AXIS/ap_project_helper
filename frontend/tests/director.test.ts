@@ -3,18 +3,21 @@ import { Director } from "../src/vfx/director";
 import { blockingLength, CLASSES, TIMING, type DamageClass } from "../src/vfx/timings";
 import { DEFAULT_CARD } from "../src/skins/registry";
 
+/** A value that absorbs any property access or call. */
+const sink: any = new Proxy(function () {}, { get: (_t, k) => (k === Symbol.toPrimitive ? () => 0 : sink), apply: () => sink });
+
 /** A stand-in engine: every effect call is a no-op, fighters have fixed anchors. */
 function fakeEngine(now: () => number) {
   const fighter = () => ({ anchors: { muzzle: [0, 0], head: [0, 0], chest: [0, 0], feet: [0, 0] }, setPose() {}, baseX: 0, baseY: 0, size: 128, facing: 1, tint: null, tintUntil: 0, soot: 0, dizzyUntil: 0 });
   const target: any = { fighters: { 1: fighter(), 2: fighter() }, charge: {}, shields: {}, status: {}, width: 800, height: 400, gameTime: 0, now, ramp: () => 0, speedLines: {}, aberration: {} };
-  return new Proxy(target, { get: (t, k) => (k in t ? t[k] : () => undefined) });
+  return new Proxy(target, { get: (t, k) => (k in t ? t[k] : sink) });
 }
 
 function run(cls: DamageClass, opts: { blocked?: boolean; lethal?: boolean; crit?: boolean } = {}) {
   let clock = 0;
   const hp: number[] = [];
   const fx = fakeEngine(() => clock);
-  const d = new Director({ fx, you: 1, skin: () => DEFAULT_CARD, setHp: (_s, h) => hp.push(h), maxHp: () => 28000, reduced: () => false } as any, () => clock);
+  const d = new Director({ fx, you: 1, skin: () => DEFAULT_CARD, setHp: (_s: number, h: number) => hp.push(h), maxHp: () => 28000, reduced: () => false } as any, () => clock);
   d.debug = [];
   const msg = opts.blocked
     ? { v: 1, type: "attack.blocked", t: 0, data: { attacker: 1, defender: 2, prevented_damage: 9000, damage_class: cls, crit: false, scenario: "safe", problem: "x", hits_landed: 1 } }
@@ -56,7 +59,7 @@ describe("VFX director timing (section 7 tables)", () => {
   });
 
   it("fast-forwards when more than 3 shows are queued and skipAll applies HP", () => {
-    let clock = 0;
+    const clock = 0;
     const hp: number[] = [];
     const d = new Director({ fx: fakeEngine(() => clock), you: 1, skin: () => DEFAULT_CARD, setHp: (_s: number, h: number) => hp.push(h), maxHp: () => 28000, reduced: () => false } as any, () => clock);
     for (let i = 0; i < 5; i++) d.play({ v: 1, type: "attack.landed", t: 0, data: { attacker: 1, defender: 2, damage: 100, damage_class: "light", crit: false, scenario: "safe", tier_diff: 1, problem: "x", defender_hp: 1000 - i, attacker_damage_dealt: 0, hits_landed: 1 } } as any);

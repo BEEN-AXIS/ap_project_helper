@@ -117,7 +117,11 @@ class MatchService:
 
     def _skins_of(self, prof: Profile) -> dict[str, Any]:
         return {"card": prof.equipped_card, "avatar": prof.equipped_avatar, "arena": prof.equipped_arena,
-                "color": prof.avatar_color}
+                "weapon": prof.equipped_weapon, "color": prof.avatar_color}
+
+    def _bot_weapon(self, personality: str | None) -> str:
+        pers = self.cfg.bots.personalities.get(personality or "") or self.cfg.bots.personalities[self.cfg.bots.default_personality]
+        return pers.weapon
 
     async def create_match(self, mode: str, map_id: str, p1: Profile, p2: Profile | None, *,
                            opponent_kind: str | None = None, seed: int | None = None) -> MatchActor:
@@ -146,7 +150,7 @@ class MatchService:
                 rating = max(0, p1.rating + rng.randint(-spread, spread))
                 name = p2.display_name
             skins = {"card": "card.classic", "avatar": "bean.plain", "arena": None, "color": p2.avatar_color,
-                     "personality": p2.personality}
+                     "personality": p2.personality, "weapon": self._bot_weapon(p2.personality)}
             self._snapshot(m, 2, p2, rating, mode, True, name, skins)
         for n in (1, 2):
             tier = getattr(m, f"player{n}_tier")
@@ -175,7 +179,7 @@ class MatchService:
                   player1_profile_id=a.id or 0, player2_profile_id=b.id or 0)
         for n, p in ((1, a), (2, b)):
             skins = {"card": "card.classic", "avatar": "bean.plain", "arena": None, "color": p.avatar_color,
-                     "personality": p.personality}
+                     "personality": p.personality, "weapon": self._bot_weapon(p.personality)}
             self._snapshot(m, n, p, p.rating, "bot", True, p.display_name, skins)
             setattr(m, f"player{n}_hand", handlib.deal_hand(decks, getattr(m, f"player{n}_tier"), cfg).to_json())
         self._apply_stage(m, cfg.map_cfg(map_id).default_arena)

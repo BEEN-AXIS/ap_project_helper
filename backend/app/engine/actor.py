@@ -338,13 +338,15 @@ class MatchActor:
         slug = hand.slots[slot]
         tier = hand.tiers[slot]
         if slug is None:
-            return {"slot": slot, "tier": tier, "problem": None, "preview": None, "pending": True}
+            return {"slot": slot, "tier": tier, "problem": None, "preview": None, "pending": True,
+                    "level": handlib.difficulty_level(self.side(n).tier, tier, self.cfg)}
         p = self.svc.problems.get(slug)
         assert p is not None, slug
         pv = dmg.compute_preview(self.side(n).tier, p.tier, p.base_damage, p.base_recoil, self.cfg)
         revealed = (self.side(n).hints_revealed or {}).get(slug, 0)
         return {
             "slot": slot, "tier": tier, "pending": False,
+            "level": handlib.difficulty_level(self.side(n).tier, p.tier, self.cfg),
             "problem": {"slug": p.slug, "title": p.title, "tier": p.tier, "biome": p.biome,
                         "tags": p.tags if revealed >= 1 else []},
             "preview": {"damage": pv.damage, "recoil": pv.recoil, "tier_diff": pv.tier_diff, "scenario": pv.scenario,
@@ -665,6 +667,7 @@ class MatchActor:
         assert p is not None
         att, dfn = self.side(n), self.side(other)
         pv = dmg.compute_preview(att.tier, p.tier, p.base_damage, p.base_recoil, self.cfg)
+        level = handlib.difficulty_level(att.tier, p.tier, self.cfg)  # picks the animation only
         sub.crit = pv.crit
         rt.cooldown_until_ms = self.now() + self.cfg.match.submit_cooldown_s * 1000
         cooldown_ms = self.cfg.match.submit_cooldown_s * 1000
@@ -695,7 +698,7 @@ class MatchActor:
                 self.stat(other, "blocks_absorbed")
                 self.emit("attack.blocked", {"attacker": n, "defender": other, "prevented_damage": pv.damage,
                                              "damage_class": cls, "crit": pv.crit, "scenario": pv.scenario,
-                                             "problem": slug, "hits_landed": att.hits_landed})
+                                             "problem": slug, "hits_landed": att.hits_landed, "level": level})
             else:
                 full_before = dfn.hp == dfn.max_hp
                 dfn.hp = dmg.apply_hp_loss(dfn.hp, pv.damage)
@@ -709,7 +712,8 @@ class MatchActor:
                 self.emit("attack.landed", {"attacker": n, "defender": other, "damage": pv.damage, "damage_class": cls,
                                             "crit": pv.crit, "scenario": pv.scenario, "tier_diff": pv.tier_diff,
                                             "problem": slug, "defender_hp": dfn.hp,
-                                            "attacker_damage_dealt": att.damage_dealt, "hits_landed": att.hits_landed})
+                                            "attacker_damage_dealt": att.damage_dealt, "hits_landed": att.hits_landed,
+                                            "level": level})
             # The card is spent; the slot gets the next problem of its tier later.
             self.hands[n] = handlib.consume_slot(self.hands[n], slot)
             att.hand = self.hands[n].to_json()
@@ -731,7 +735,8 @@ class MatchActor:
             self.emit("submission.verdict", {**base, "void": False, "damage": 0, "recoil": pv.recoil,
                                              "cooldown_ms": cooldown_ms}, f"p{n}")
             self.emit("attack.backfire", {"attacker": n, "recoil": pv.recoil, "recoil_class": cls, "verdict": verdict,
-                                          "problem": slug, "attacker_hp": att.hp, "crit": pv.crit, "scenario": pv.scenario})
+                                          "problem": slug, "attacker_hp": att.hp, "crit": pv.crit, "scenario": pv.scenario,
+                                          "level": level})
             if att.hp == 0:
                 self.stat_set(n, "ko_by_recoil", True)
                 self._end("ko")

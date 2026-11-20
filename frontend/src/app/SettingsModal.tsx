@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { t } from "../i18n";
 import { useSettings, type Settings } from "../state/settings";
 
@@ -30,18 +31,29 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       prev?.focus();
     };
   }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div ref={ref} className="panel w-full max-w-md p-5">
-        <div className="mb-4 flex items-center justify-between">
+  // Rendered at the page root: an ancestor with a backdrop blur or transform
+  // (like the sticky header) would otherwise trap this fixed overlay in its box.
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div ref={ref} className="panel my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col p-5">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h2 className="pixel text-xs text-green-400">{title}</h2>
           <button className="btn btn-ghost !min-h-8 !px-2" onClick={onClose} aria-label={t("common.close")}>
             ✕
           </button>
         </div>
-        {children}
+        <div className="-mr-2 min-h-0 overflow-y-auto pr-2">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

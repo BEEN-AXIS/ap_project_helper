@@ -51,6 +51,7 @@ class Profile(SQLModel, table=True):
     equipped_card: str = Field(default="card.classic", max_length=48)
     equipped_avatar: str = Field(default="bean.plain", max_length=48)
     equipped_arena: str | None = Field(default=None, max_length=48)
+    equipped_weapon: str = Field(default="weapon.fireball", max_length=48)
     avatar_color: str = Field(default="#3b82f6", max_length=9)
     settings: dict = JsonCol(dict)  # type: ignore[type-arg]
     is_bot: bool = False

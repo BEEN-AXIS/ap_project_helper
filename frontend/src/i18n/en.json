@@ -296,5 +296,13 @@
   "common.on": "On",
   "common.off": "Off",
   "common.high": "High",
-  "common.low": "Low"
+  "common.low": "Low",
+  "level.easy": "Easy",
+  "level.normal": "Normal",
+  "level.medium": "Medium",
+  "level.tough": "Tough",
+  "card.level_title": "{level} card: your {weapon} attacks as {form}",
+  "locker.weapons": "Weapons",
+  "locker.weapon_help": "Your weapon is how your attacks look; it never changes damage. The card's difficulty picks the form.",
+  "locker.preview_level": "Preview {level}"
 }

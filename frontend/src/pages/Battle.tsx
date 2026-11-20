@@ -317,6 +317,7 @@ export default function Battle({ params }: { params: { id: string } }) {
                       card={c}
                       index={i}
                       skinId={String(me?.skins?.card ?? "card.classic")}
+                      weaponId={me?.skins?.weapon as string | undefined}
                       playerTier={me?.tier ?? 1}
                       myHp={me?.hp ?? 0}
                       oppHp={opp?.hp ?? 0}

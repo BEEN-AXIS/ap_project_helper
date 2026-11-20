@@ -1,0 +1,33 @@
+{
+  "id": "weapon.gun",
+  "kind": "weapon",
+  "name": "Blaster",
+  "rarity": "common",
+  "unlock": {
+    "type": "default"
+  },
+  "style": "gun",
+  "description": "From one tracer to a minigun to a rocket. Every shot ejects a brass casing.",
+  "levels": {
+    "easy": "Pistol Shot",
+    "normal": "Three-Round Burst",
+    "medium": "Minigun",
+    "tough": "Rocket Launcher"
+  },
+  "palette": {
+    "metal": "#475569",
+    "accent": "#f97316",
+    "ramp": [
+      "#ffffff",
+      "#fef08a",
+      "#fb923c",
+      "#dc2626",
+      "#1f2937"
+    ]
+  },
+  "card_colors": false,
+  "status": "none",
+  "reducedMotion": {
+    "projectile": "orb"
+  }
+}

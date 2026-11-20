@@ -14,9 +14,12 @@ export const enum Kind {
   Shard = 5,
   Ring = 6,
   Glyph = 7,
+  Streak = 8, // a spark drawn as a line along its velocity: sells speed
+  Ember = 9, // a small flickering glow that drifts up
+  Debris = 10, // a tumbling rock chip that bounces off the floor
 }
 
-export const ADDITIVE = new Set<number>([Kind.Glow, Kind.Flame, Kind.Spark, Kind.Ring]);
+export const ADDITIVE = new Set<number>([Kind.Glow, Kind.Flame, Kind.Spark, Kind.Ring, Kind.Streak, Kind.Ember]);
 
 export class Particles {
   readonly cap: number;
@@ -209,6 +212,38 @@ export function squareSprite(color: string): HTMLCanvasElement {
     const [cv, g] = makeCanvas(8);
     g.fillStyle = color;
     g.fillRect(0, 0, 8, 8);
+    spriteCache.set(key, cv);
+    c = cv;
+  }
+  return c;
+}
+
+/** An irregular rock chip with a lit edge, rendered once per colour. */
+export function debrisSprite(color: string): HTMLCanvasElement {
+  const key = `d:${color}`;
+  let c = spriteCache.get(key);
+  if (!c) {
+    const [cv, g] = makeCanvas(16);
+    g.fillStyle = color;
+    g.beginPath();
+    const pts = [
+      [2, 6],
+      [6, 1],
+      [12, 2],
+      [15, 8],
+      [11, 14],
+      [4, 13],
+    ];
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+    g.fillStyle = "rgba(255,255,255,0.25)";
+    g.beginPath();
+    g.moveTo(6, 1);
+    g.lineTo(12, 2);
+    g.lineTo(9, 6);
+    g.closePath();
+    g.fill();
     spriteCache.set(key, cv);
     c = cv;
   }

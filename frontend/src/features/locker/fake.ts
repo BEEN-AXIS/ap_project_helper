@@ -2,11 +2,11 @@
 import type { ServerMessage } from "../../net/protocol.generated";
 import { initialState, type BattleState, type PlayerState } from "../../state/battle.reducer";
 
-export function dummyState(opts: { cardSkin?: string; avatar?: string; arena?: string; hp1?: number; hp2?: number; max?: number } = {}): BattleState {
+export function dummyState(opts: { cardSkin?: string; avatar?: string; arena?: string; weapon?: string; weapon2?: string; hp1?: number; hp2?: number; max?: number } = {}): BattleState {
   const max = opts.max ?? 28000;
   const base = (side: 1 | 2, name: string, color: string, hp: number): PlayerState => ({
     side, name, rating: 1300, tier: 2, maxHp: max, hp, isBot: true, connected: true, hitsLanded: 0, damageDealt: 0,
-    skins: { card: side === 1 ? opts.cardSkin ?? "card.classic" : "card.classic", avatar: side === 1 ? opts.avatar ?? "bean.plain" : "bean.plain", color },
+    skins: { card: side === 1 ? opts.cardSkin ?? "card.classic" : "card.classic", avatar: side === 1 ? opts.avatar ?? "bean.plain" : "bean.plain", weapon: side === 1 ? opts.weapon ?? "weapon.fireball" : opts.weapon2 ?? opts.weapon ?? "weapon.fireball", color },
     shieldUntil: null, judging: false, activity: "arena", burnUntil: null, burnClass: null,
   });
   return {
@@ -18,11 +18,11 @@ export function dummyState(opts: { cardSkin?: string; avatar?: string; arena?: s
   };
 }
 
-export function fakeAttack(o: { attacker: 1 | 2; damage: number; cls: string; crit: boolean; defenderHp: number; blocked?: boolean }): ServerMessage {
+export function fakeAttack(o: { attacker: 1 | 2; damage: number; cls: string; crit: boolean; defenderHp: number; blocked?: boolean; level?: number }): ServerMessage {
   const t = Date.now();
   if (o.blocked)
-    return { v: 1, type: "attack.blocked", t, data: { attacker: o.attacker, defender: o.attacker === 1 ? 2 : 1, prevented_damage: o.damage, damage_class: o.cls, crit: o.crit, scenario: "stretching", problem: "preview", hits_landed: 1 } } as any;
-  return { v: 1, type: "attack.landed", t, data: { attacker: o.attacker, defender: o.attacker === 1 ? 2 : 1, damage: o.damage, damage_class: o.cls, crit: o.crit, scenario: o.crit ? "ambitious" : "stretching", tier_diff: o.crit ? -2 : -1, problem: "preview", defender_hp: o.defenderHp, attacker_damage_dealt: o.damage, hits_landed: 1 } } as any;
+    return { v: 1, type: "attack.blocked", t, data: { attacker: o.attacker, defender: o.attacker === 1 ? 2 : 1, prevented_damage: o.damage, damage_class: o.cls, crit: o.crit, scenario: "stretching", problem: "preview", hits_landed: 1, level: o.level } } as any;
+  return { v: 1, type: "attack.landed", t, data: { attacker: o.attacker, defender: o.attacker === 1 ? 2 : 1, damage: o.damage, damage_class: o.cls, crit: o.crit, scenario: o.crit ? "ambitious" : "stretching", tier_diff: o.crit ? -2 : -1, problem: "preview", defender_hp: o.defenderHp, attacker_damage_dealt: o.damage, hits_landed: 1, level: o.level } } as any;
 }
 
 export function fakeBackfire(side: 1 | 2, recoil: number, cls: string, hpAfter: number): ServerMessage {

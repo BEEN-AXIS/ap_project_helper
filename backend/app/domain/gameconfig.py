@@ -45,6 +45,7 @@ class HandCfg(_Strict):
     redeal_ms: int
     prestige_min_tier: int
     min_deck_per_tier: int
+    levels: list[str]  # names for a card's place in the hand window: easy, normal, medium, tough
 
 
 class MapCfg(_Strict):
@@ -175,6 +176,7 @@ class PersonalityCfg(_Strict):
     time_scale: float
     skill_offset: float
     block_below_pct: int
+    weapon: str = "weapon.fireball"  # cosmetic only
 
 
 class BotsCfg(_Strict):
@@ -276,6 +278,8 @@ class GameConfig(_Strict):
         for p in self.bots.personalities.values():
             if len(p.slot_weights) != self.hand.size or sum(p.slot_weights) <= 0:
                 raise ValueError("bot slot_weights must have one positive-sum weight per hand slot")
+        if len(self.hand.levels) != self.hand.size:
+            raise ValueError("hand.levels needs one name per hand slot")
         ids = [m.id for m in self.maps]
         if len(set(ids)) != len(ids):
             raise ValueError("duplicate map id")

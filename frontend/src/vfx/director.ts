@@ -13,6 +13,7 @@ import type { CardSkin } from "../skins/registry";
 import type { Engine } from "./engine";
 import { Kind } from "./particles";
 import { BACKFIRE_DESTABILISE_MS, BACKFIRE_EXPLOSION, BACKFIRE_IMPLODE_MS, blockingLength, BURN_DELAY_MS, CRIT, INTENSITY, KO, nextClass, TIMING, type DamageClass } from "./timings";
+import { DEFAULT_LOOK, LEVEL_EXTRA, levelOf, WEAPONS, type Strike, type WeaponLook } from "./weapons";
 
 export interface Step {
   at: number;
@@ -37,6 +38,8 @@ export interface ShowContext {
   setHp: (side: 1 | 2, hp: number, animate: boolean) => void;
   maxHp: (side: 1 | 2) => number;
   reduced: () => boolean;
+  /** The attacker's equipped weapon. Optional: tests and old callers get the fireball. */
+  weapon?: (side: 1 | 2) => WeaponLook;
 }
 
 export interface DebugEntry {
@@ -203,13 +206,37 @@ export class Director {
     const crit: boolean = d.crit;
     const amount: number = blocked ? d.prevented_damage : d.damage;
     const skin = this.ctx.skin(att);
-    const ramp = fx.ramp(crit ? ["#ffffff", "#e0f2fe", ...skin.attack.ramp.slice(1, 4)] : skin.attack.ramp);
-    const T = TIMING[cls];
+    let ramp = fx.ramp(crit ? ["#ffffff", "#e0f2fe", ...skin.attack.ramp.slice(1, 4)] : skin.attack.ramp);
     const I = INTENSITY[cls];
     const reduced = this.ctx.reduced();
     const A = fx.fighters[att];
     const D = fx.fighters[def];
     const defenderIsMe = def === this.ctx.you;
+    // The card's difficulty picks the weapon choreography and adds time for the
+    // bigger forms. Events without a level (old replays) keep the class timeline.
+    const level = levelOf(d.level, cls);
+    const extra = typeof d.level === "number" ? LEVEL_EXTRA[level] : LEVEL_EXTRA[0];
+    const T = { ...TIMING[cls], windup: TIMING[cls].windup + extra.windup, travel: TIMING[cls].travel + extra.travel };
+    const look = this.ctx.weapon?.(att) ?? { ...DEFAULT_LOOK, colors: skin.attack.ramp };
+    const weapon = WEAPONS[look.style] ?? WEAPONS.fireball;
+    const hitPoint = (): [number, number] => (blocked ? [D.anchors.chest[0] - D.facing * D.size * 0.5, D.anchors.chest[1]] : [D.anchors.chest[0], D.anchors.chest[1]]);
+    const strike: Strike = {
+      fx,
+      A,
+      D,
+      att,
+      def,
+      level,
+      cls,
+      look,
+      ramp: fx.ramp(crit ? ["#ffffff", "#e0f2fe", ...look.colors.slice(1, 4)] : look.colors),
+      windup: T.windup,
+      travel: T.travel,
+      blocked,
+      warn: defenderIsMe,
+      hit: hitPoint,
+    };
+    ramp = strike.ramp; // the weapon's colours drive the charge, sparks and trails
     const impactAt = reduced ? 200 : T.windup + T.travel;
     const steps: Step[] = [];
     let hpApplied = false;
@@ -247,6 +274,7 @@ export class Director {
         const [mx, my] = A.anchors.muzzle;
         fx.burst(Kind.Spark, mx, my, 14, -90, T.windup, [4, 1], ramp, { drag: 0 });
         sfx.windup(T.windup, skin.attack.element);
+        weapon.windup(strike);
       },
     });
     steps.push({
@@ -256,8 +284,7 @@ export class Director {
         delete fx.charge[att];
         A.setPose("cast", 300);
         fx.zoomTo(1, 1);
-        fx.launch({ from: [...A.anchors.muzzle] as [number, number], to: () => (blocked ? [D.anchors.chest[0] - D.facing * D.size * 0.5, D.anchors.chest[1]] : D.anchors.chest), dur: T.travel, size: I.core, ramp, style: skin.attack.projectile, trail: I.trail, trailStyle: skin.attack.trail, warn: defenderIsMe });
-        sfx.launch(T.travel);
+        weapon.launch(strike);
       },
     });
     steps.push({
@@ -285,6 +312,7 @@ export class Director {
         }
         fx.ring(x, y, crit ? INTENSITY[nextClass(cls)].shockwave : I.shockwave, 450, "#fff7d6", 8);
         fx.burst(Kind.Spark, x, y, I.sparks, 520, 380, [4, 1], ramp, { drag: 3 });
+        weapon.impact(strike);
         D.setPose("hurt", 490, I.knockback);
         D.tint = "#ffffff";
         D.tintUntil = fx.now() + 80;
@@ -306,21 +334,19 @@ export class Director {
         label: "explosion",
         run: () => {
           const [x, y] = D.anchors.chest;
-          fx.burst(Kind.Flame, x, y, I.burst, 260, T.explosion, [I.core * 0.7, 4], ramp, { ay: -120, drag: 2 });
-          fx.burst(Kind.Smoke, x, y - 10, I.smoke, 90, T.explosion * 1.6, [10, 28], ramp, { ay: -40, drag: 1 });
-          fx.burst(Kind.Square, x, y, Math.round(I.sparks / 4), 300, 900, [4, 3], ramp, { ay: 900, drag: 0.4, bounceY: D.anchors.feet[1] });
-          if (I.scorch) fx.decal(D.anchors.feet[0], D.anchors.feet[1], 18 + 14 * I.scorch, cls === "nuke");
+          weapon.explode(strike);
           if (I.slowmo) fx.slowmo(I.slowmo[0], I.slowmo[1]);
           if (cls === "nuke") {
             fx.ring(x, y, Math.max(fx.width, fx.height), 700, "#fde68a", 10, 30);
             fx.aberration = { until: fx.now() + 300, px: 4 };
           }
           const burn = T.burn;
-          if (burn) setTimeout(() => fx.setStatus(def, skin.attack.status, burn), BURN_DELAY_MS);
+          const status = look.status;
+          if (burn && status) setTimeout(() => fx.setStatus(def, status, burn), BURN_DELAY_MS);
         },
       });
     }
-    let length = blockingLength(cls);
+    let length = blockingLength(cls) + extra.windup + extra.travel;
     if (lethal) {
       steps.push(...this.koSteps(def, att, impactAt + T.hitStop + 50, false));
       length = Math.max(length, impactAt + KO.wipeAfterMs);

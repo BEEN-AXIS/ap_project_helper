@@ -1,4 +1,4 @@
-"""The baseline migration builds exactly the schema the models declare.
+"""The migration chain builds exactly the schema the models declare.
 
 Alembic is optional at runtime, so this drives upgrade() with a small
 stand-in for `alembic.op` and compares the result with create_all.
@@ -15,7 +15,8 @@ from sqlmodel import SQLModel
 
 import app.models  # noqa: F401
 
-MIGRATION = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0001_initial.py"
+VERSIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
+MIGRATIONS = ["0001_initial.py", "0002_equipped_weapon.py"]
 
 
 def _schema(engine: sa.Engine) -> dict:
@@ -30,7 +31,7 @@ def _schema(engine: sa.Engine) -> dict:
     return out
 
 
-def test_initial_migration_matches_models(tmp_path: Path) -> None:
+def test_migrations_build_the_model_schema(tmp_path: Path) -> None:
     ref = sa.create_engine(f"sqlite:///{tmp_path / 'ref.db'}")
     SQLModel.metadata.create_all(ref)
 
@@ -47,17 +48,40 @@ def test_initial_migration_matches_models(tmp_path: Path) -> None:
         tbl = md.tables[table]
         sa.Index(name, *[tbl.c[c] for c in columns], unique=unique).create(conn)
 
-    fake_op = types.SimpleNamespace(create_table=create_table, create_index=create_index)
+    class Batch:
+        def __init__(self, table: str) -> None:
+            self.table = table
+
+        def __enter__(self) -> "Batch":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def add_column(self, col: sa.Column) -> None:
+            ddl = f"ALTER TABLE {self.table} ADD COLUMN {col.name} {col.type.compile(mig.dialect)}"
+            if not col.nullable:
+                ddl += " NOT NULL"
+            if col.server_default is not None:
+                ddl += f" DEFAULT '{col.server_default.arg}'"
+            conn.exec_driver_sql(ddl)
+
+    fake_op = types.SimpleNamespace(create_table=create_table, create_index=create_index,
+                                    batch_alter_table=lambda table: Batch(table))
     alembic_mod = types.ModuleType("alembic")
     alembic_mod.op = fake_op  # type: ignore[attr-defined]
     saved = sys.modules.get("alembic")
     sys.modules["alembic"] = alembic_mod
     try:
-        spec = importlib.util.spec_from_file_location("mig_0001", MIGRATION)
-        mod = importlib.util.module_from_spec(spec)
-        assert spec.loader
-        spec.loader.exec_module(mod)
-        mod.upgrade()
+        prev = None
+        for name in MIGRATIONS:
+            spec = importlib.util.spec_from_file_location(name[:-3], VERSIONS / name)
+            assert spec and spec.loader
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            assert mod.down_revision == prev, f"{name} must follow {prev}"
+            prev = mod.revision
+            mod.upgrade()
         conn.commit()
     finally:
         conn.close()

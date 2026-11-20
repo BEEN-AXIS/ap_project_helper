@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { sfx } from "../../audio/sfx";
 import { t } from "../../i18n";
 import type { ServerMessage } from "../../net/protocol.generated";
-import { arenaSkin, avatarSkin, cardSkin, onRegistry } from "../../skins/registry";
+import { arenaSkin, avatarSkin, cardSkin, onRegistry, weaponLook } from "../../skins/registry";
 import type { BattleState, PlayerState, Side } from "../../state/battle.reducer";
 import { serverNow } from "../../state/battle.store";
 import { prefersReducedMotion, useSettings } from "../../state/settings";
@@ -133,6 +133,10 @@ export function ArenaView({ state, compact, subscribe, onReady, showHud = true }
         return (stateRef.current.you ?? 1) as Side;
       },
       skin: (side: 1 | 2) => cardSkin(stateRef.current.players?.[side]?.skins?.card),
+      weapon: (side: 1 | 2) => {
+        const sk = stateRef.current.players?.[side]?.skins;
+        return weaponLook(sk?.weapon, sk?.card);
+      },
       setHp: (side: 1 | 2, hp: number, animate: boolean) => {
         const max = stateRef.current.players?.[side]?.maxHp ?? 1;
         e.hp[side]?.set(hp, max, performance.now(), animate && !prefersReducedMotion());
