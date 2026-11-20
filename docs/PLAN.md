@@ -21,7 +21,8 @@ A single FastAPI process owns every live match. Each match is an asyncio `MatchA
 | 5 | VFX and audio: engine, director, shows, HP bars, quality levels, synth | Director timings equal the brief's tables; every show fires on both screens | Passed (unit tests + VFX steps observed in the browser run) |
 | 6 | Skins and economy: registry, validation, unlocks, shop, locker, Arena Points | Manifests validate; equip changes what the opponent sees; unlock paths tested | Passed |
 | 7 | Creative features behind flags: bot personalities, streaks, emotes, quests, achievements, replays | Each flag toggles its system alone; each system has a test | Passed for the flags that are on; spectate, rooms, tutorial, calibration, music and the later modes stay off and unbuilt |
-| 8 | Hardening and release: rate limits, fair-play signals, admin console, README, docker compose | Acceptance checklist | Mostly ticked; see "Known gaps" in the README for what could not be run here (Docker, Alembic, Vite/Vitest/ESLint themselves) |
+| 8 | Hardening and release: rate limits, fair-play signals, admin console, README, docker compose | Acceptance checklist | Mostly ticked; tsc and ESLint are clean against the real packages. See "Known gaps" in the README for what still needs a run on macOS or Docker (Vite, Vitest and the Playwright runner; Docker; Alembic) |
+| 9 | Weapons (requested after delivery): eight weapons with easy/normal/medium/tough forms, heavy particles, weapon locker | Every form lands its main hit on the impact step; both screens show the attacker's weapon; locker equips and previews | Passed: 32-form timing test, server equip/buy/unlock tests, screenshots of every form, two-player match |
 
 ## Top risks and what addresses them
 
@@ -46,3 +47,4 @@ A single FastAPI process owns every live match. Each match is an asyncio `MatchA
 - **Migrations:** the server runs `alembic upgrade head` on start when Alembic is installed and falls back to `create_all` otherwise; under `ENV=test` it always uses `create_all`.
 - **Judge selection:** `JUDGE_BACKEND=auto` uses Docker only when the daemon answers and the judge image exists, so a fresh clone works before `make judge-image`.
 - **Languages:** Python only at launch; the config, protocol and editor picker are language-agnostic, the harness is not yet (no compile phase).
+- **Weapons vs damage classes:** the card's difficulty (its place in the hand window) picks the weapon form and adds wind-up and travel time for the bigger forms; the damage class (share of the target's HP) still drives shake, flash, number size and slow motion, as in the brief's tables. Events without a level (older replays) keep the original timeline.
