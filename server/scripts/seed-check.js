@@ -3,8 +3,9 @@
 // Runs every problem's reference solutions through the configured judge runner:
 // the Python one stored with the problem and seed/solutions_cpp/<slug>.cpp when
 // the judge can compile C++. Fails if any test disagrees or any solution uses
-// more than half of the time limit. With --brute it also runs seed/brute/<slug>.py
-// on the hidden tests and expects it to fail (TLE or MLE): slow, so it is opt-in.
+// more than half of the time limit. With --brute it also runs the problem's
+// brute_solution (seed/catalog.js) on the hidden tests and expects it to fail
+// (TLE or MLE): slow, so it is opt-in.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { getGameConfig, getSettings } from '../src/config.js';
 import { buildJob, languageToolsPresent, makeRunner, summarize } from '../src/judge/index.js';
 import { loadProblemFiles } from '../src/seed.js';
+import { PROBLEMS } from '../seed/catalog.js';
 
 const SEED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'seed');
 const noProgress = async () => {};
@@ -46,10 +48,10 @@ export async function checkProblem(runner, data, brute, langs = null) {
   }
   let line = `${data.slug.padEnd(18)} ${parts.join(' | ')}`;
   if (brute) {
-    const file = path.join(SEED_DIR, 'brute', `${data.slug}.py`);
-    if (fs.existsSync(file)) {
+    const bruteSource = (PROBLEMS.find((p) => p.slug === data.slug) || {}).brute_solution;
+    if (bruteSource) {
       const hidden = tests.filter((t) => !t.is_sample);
-      const bres = await runner.run(buildJob(cfg, { ...spec, tests: hidden, language: 'python', source: fs.readFileSync(file, 'utf8') }), noProgress);
+      const bres = await runner.run(buildJob(cfg, { ...spec, tests: hidden, language: 'python', source: bruteSource }), noProgress);
       const [bv, bf] = summarize(bres, hidden.length);
       line += ` | brute force: ${bv} on hidden test ${bf}`;
       if (bv === 'AC') errors.push('the brute force passed every hidden test');

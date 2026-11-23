@@ -2,8 +2,8 @@
 //
 // Inputs come from fixed-seed generators below (a Python-compatible Mersenne
 // Twister, so the files are byte-identical to the ones first generated);
-// expected outputs come from the reference solutions in seed/solutions/. The
-// generated files are committed.
+// expected outputs come from each problem's reference_solution in
+// seed/catalog.js, run with python3. The generated files are committed.
 //
 //   node scripts/gen-tests.js            # all problems
 //   node scripts/gen-tests.js range-and  # one problem
@@ -11,6 +11,7 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PyRandom } from '../src/pyrandom.js';
@@ -18,7 +19,6 @@ import { PROBLEMS, STUB_HEADER } from '../seed/catalog.js';
 
 const SEED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'seed');
 const OUT = path.join(SEED_DIR, 'problems');
-const SOL = path.join(SEED_DIR, 'solutions');
 
 const R = (slug, i) => new PyRandom(`${slug}:${i}:algoarena`);
 const lines = (...rows) => `${rows.map(String).join('\n')}\n`;
@@ -295,8 +295,13 @@ export const GENERATORS = {
 };
 
 /** Expected output: the problem's reference solution (Python, the problems' answer key) run on the input. */
-function runSolution(slug, stdin) {
-  const r = spawnSync('python3', [path.join(SOL, `${slug}.py`)], { input: stdin, encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
+function runSolution(p, stdin) {
+  const { slug } = p;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aa-ref-'));
+  const file = path.join(dir, 'reference.py');
+  fs.writeFileSync(file, p.reference_solution);
+  const r = spawnSync('python3', ['-I', file], { input: stdin, encoding: 'utf8', timeout: 120_000, maxBuffer: 64 * 1024 * 1024 });
+  fs.rmSync(dir, { recursive: true, force: true });
   if (r.error) throw new Error(`${slug}: could not run the reference solution: ${r.error.message}`);
   if (r.status !== 0) throw new Error(`${slug}: reference solution failed:\n${r.stderr}`);
   return r.stdout;
@@ -308,13 +313,13 @@ export function build(p) {
   const { slug } = p;
   const tests = [];
   for (const [inp, out] of p.samples) {
-    const got = runSolution(slug, inp);
+    const got = runSolution(p, inp);
     if (words(got) !== words(out)) throw new Error(`${slug}: sample disagrees with the reference\ninput:\n${inp}\nexpected:\n${out}\ngot:\n${got}`);
     tests.push({ input: inp, expected: out, is_sample: true });
   }
   for (const inp of GENERATORS[slug](slug)) {
     if (Buffer.byteLength(inp) > 1024 * 1024) throw new Error(`${slug}: test input over 1 MB`);
-    const out = runSolution(slug, inp);
+    const out = runSolution(p, inp);
     if (Buffer.byteLength(out) > 64 * 1024) throw new Error(`${slug}: expected output over 64 KB`);
     tests.push({ input: inp, expected: out, is_sample: false });
   }
@@ -326,7 +331,7 @@ export function build(p) {
     constraints_md: p.constraints_md, tags: p.tags, hints: p.hints,
     stubs: { python: STUB_HEADER + p.stub },
     time_limit_ms: tier >= 4 ? 3000 : 2000, memory_mb: 256, checker: 'exact',
-    reference_solution: fs.readFileSync(path.join(SOL, `${slug}.py`), 'utf8'),
+    reference_solution: p.reference_solution,
     tests,
   };
 }

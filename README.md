@@ -241,7 +241,8 @@ cp_battle/
       skins/              manifest registry + validation, unlocks, shop
       services/           judging glue, problem cache, profiles, stats (career numbers for home and profiles)
       seed.js             problems, demo users and bots
-    seed/                 catalog.js, solutions/ and solutions_cpp/ (reference answers), brute/, problems/*.json (17)
+    seed/                 catalog.js (statements, stubs, hints, reference and brute-force answers), solutions_cpp/,
+                          problems/*.json (17, with their tests)
     scripts/              seed, seed-check, gen-tests, gen-golden, gen-reducer-golden, make-types, migration-sql,
                           load-test, ports
     test/                 rules, engine, protocol, API (real HTTP + WebSockets), stats, migrations; judge/ (real
@@ -303,7 +304,7 @@ Last server run (after the move to Node.js): **109 passed, 11 skipped** (Docker-
 ### A problem
 
 1. Add an entry to `server/seed/catalog.js`: slug, title, biome (`bit`, `binary` or `general`), rating (the tier comes from the same thresholds as players: <1200 T1, <1400 T2, <1600 T3, <1900 T4, else T5), statement/input/output/constraints in Markdown with `$…$` maths, three hints in order, a stub, time and memory limits, and a checker (`exact`, `tokens`, `float`, `unordered_lines` or `custom`).
-2. Write the reference solution at `server/seed/solutions/<slug>.py` (problems' answers are in Python, the default submission language; optionally a brute force at `server/seed/brute/<slug>.py` that must TLE on the large tests, and a C++ answer in `server/seed/solutions_cpp/<slug>.cpp`).
+2. Put the reference solution in the same entry as `reference_solution` (source text in Python, the default submission language; it produces the expected outputs). Optionally add a `brute_solution` that must TLE on the large tests, and a C++ answer in `server/seed/solutions_cpp/<slug>.cpp`.
 3. Add a test generator function in `server/scripts/gen-tests.js` (fixed random seeds; keep outputs under the 64 KB output limit) and run `node scripts/gen-tests.js <slug>` from `server/`. Expected outputs come from your reference solution.
 4. `make seed && make seed-check`. The problem joins the deck for its tier and biome; each tier needs at least `hand.min_deck_per_tier` problems per biome.
 
