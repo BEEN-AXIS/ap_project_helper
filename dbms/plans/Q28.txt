@@ -1,0 +1,107 @@
+Q28 · READ · Practice browser: every problem with whether I have solved it
+App: api/players.py:247 (the solved set; the list itself comes from the
+cache); here the list and the solved flag in one LEFT JOIN.
+
+SELECT p.slug, p.title, p.biome, p.tier, p.rating, (s.problem_id IS NOT NULL) AS solved
+FROM problems p
+LEFT JOIN (SELECT DISTINCT problem_id
+           FROM submissions
+           WHERE profile_id = 26 AND verdict = 'AC') s ON s.problem_id = p.id
+WHERE p.status = 'published'
+ORDER BY p.biome, p.tier, p.slug;
+
+---- Run 1: execution 0.318 ms, planning 0.185 ms ----
+Sort  (cost=1394.98..1395.02 rows=17 width=40) (actual time=0.292..0.294 rows=17 loops=1)
+  Sort Key: p.biome, p.tier, p.slug
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=115
+  ->  Hash Left Join  (cost=1391.36..1394.63 rows=17 width=40) (actual time=0.257..0.272 rows=17 loops=1)
+        Hash Cond: (p.id = submissions.problem_id)
+        Buffers: shared hit=115
+        ->  Seq Scan on problems p  (cost=0.00..3.21 rows=17 width=43) (actual time=0.004..0.014 rows=17 loops=1)
+              Filter: ((status)::text = 'published'::text)
+              Buffers: shared hit=3
+        ->  Hash  (cost=1391.15..1391.15 rows=17 width=4) (actual time=0.250..0.251 rows=17 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=112
+              ->  Unique  (cost=1390.41..1391.15 rows=17 width=4) (actual time=0.235..0.247 rows=17 loops=1)
+                    Buffers: shared hit=112
+                    ->  Sort  (cost=1390.41..1390.78 rows=148 width=4) (actual time=0.234..0.239 rows=101 loops=1)
+                          Sort Key: submissions.problem_id
+                          Sort Method: quicksort  Memory: 25kB
+                          Buffers: shared hit=112
+                          ->  Bitmap Heap Scan on submissions  (cost=7.33..1385.08 rows=148 width=4) (actual time=0.035..0.223 rows=101 loops=1)
+                                Recheck Cond: (profile_id = 26)
+                                Filter: ((verdict)::text = 'AC'::text)
+                                Rows Removed by Filter: 168
+                                Heap Blocks: exact=109
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.021..0.021 rows=269 loops=1)
+                                      Index Cond: (profile_id = 26)
+                                      Buffers: shared hit=3
+Planning Time: 0.185 ms
+Execution Time: 0.318 ms
+
+---- Run 2: execution 0.271 ms, planning 0.120 ms ----
+Sort  (cost=1394.98..1395.02 rows=17 width=40) (actual time=0.248..0.250 rows=17 loops=1)
+  Sort Key: p.biome, p.tier, p.slug
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=115
+  ->  Hash Left Join  (cost=1391.36..1394.63 rows=17 width=40) (actual time=0.223..0.236 rows=17 loops=1)
+        Hash Cond: (p.id = submissions.problem_id)
+        Buffers: shared hit=115
+        ->  Seq Scan on problems p  (cost=0.00..3.21 rows=17 width=43) (actual time=0.003..0.013 rows=17 loops=1)
+              Filter: ((status)::text = 'published'::text)
+              Buffers: shared hit=3
+        ->  Hash  (cost=1391.15..1391.15 rows=17 width=4) (actual time=0.217..0.218 rows=17 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=112
+              ->  Unique  (cost=1390.41..1391.15 rows=17 width=4) (actual time=0.203..0.215 rows=17 loops=1)
+                    Buffers: shared hit=112
+                    ->  Sort  (cost=1390.41..1390.78 rows=148 width=4) (actual time=0.202..0.206 rows=101 loops=1)
+                          Sort Key: submissions.problem_id
+                          Sort Method: quicksort  Memory: 25kB
+                          Buffers: shared hit=112
+                          ->  Bitmap Heap Scan on submissions  (cost=7.33..1385.08 rows=148 width=4) (actual time=0.028..0.192 rows=101 loops=1)
+                                Recheck Cond: (profile_id = 26)
+                                Filter: ((verdict)::text = 'AC'::text)
+                                Rows Removed by Filter: 168
+                                Heap Blocks: exact=109
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.015..0.015 rows=269 loops=1)
+                                      Index Cond: (profile_id = 26)
+                                      Buffers: shared hit=3
+Planning Time: 0.120 ms
+Execution Time: 0.271 ms
+
+---- Run 3: execution 0.386 ms, planning 0.184 ms ----
+Sort  (cost=1394.98..1395.02 rows=17 width=40) (actual time=0.351..0.354 rows=17 loops=1)
+  Sort Key: p.biome, p.tier, p.slug
+  Sort Method: quicksort  Memory: 26kB
+  Buffers: shared hit=115
+  ->  Hash Left Join  (cost=1391.36..1394.63 rows=17 width=40) (actual time=0.311..0.333 rows=17 loops=1)
+        Hash Cond: (p.id = submissions.problem_id)
+        Buffers: shared hit=115
+        ->  Seq Scan on problems p  (cost=0.00..3.21 rows=17 width=43) (actual time=0.007..0.024 rows=17 loops=1)
+              Filter: ((status)::text = 'published'::text)
+              Buffers: shared hit=3
+        ->  Hash  (cost=1391.15..1391.15 rows=17 width=4) (actual time=0.298..0.299 rows=17 loops=1)
+              Buckets: 1024  Batches: 1  Memory Usage: 9kB
+              Buffers: shared hit=112
+              ->  Unique  (cost=1390.41..1391.15 rows=17 width=4) (actual time=0.277..0.294 rows=17 loops=1)
+                    Buffers: shared hit=112
+                    ->  Sort  (cost=1390.41..1390.78 rows=148 width=4) (actual time=0.276..0.282 rows=101 loops=1)
+                          Sort Key: submissions.problem_id
+                          Sort Method: quicksort  Memory: 25kB
+                          Buffers: shared hit=112
+                          ->  Bitmap Heap Scan on submissions  (cost=7.33..1385.08 rows=148 width=4) (actual time=0.041..0.259 rows=101 loops=1)
+                                Recheck Cond: (profile_id = 26)
+                                Filter: ((verdict)::text = 'AC'::text)
+                                Rows Removed by Filter: 168
+                                Heap Blocks: exact=109
+                                Buffers: shared hit=112
+                                ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.023..0.023 rows=269 loops=1)
+                                      Index Cond: (profile_id = 26)
+                                      Buffers: shared hit=3
+Planning Time: 0.184 ms
+Execution Time: 0.386 ms

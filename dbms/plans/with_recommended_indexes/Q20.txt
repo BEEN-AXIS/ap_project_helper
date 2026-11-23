@@ -1,0 +1,108 @@
+Q20 · READ · Career stats: distinct problems solved, by topic and tier
+App: services/stats.py:119-134 (joins submission rows to the problem cache
+in Python); here a JOIN to problems.
+
+SELECT pr.biome, pr.tier, count(DISTINCT s.problem_id) AS solved
+FROM submissions s
+JOIN problems pr ON pr.id = s.problem_id
+WHERE s.profile_id = 26
+  AND s.status = 'done'
+  AND s.verdict = 'AC'
+GROUP BY pr.biome, pr.tier
+ORDER BY pr.biome, pr.tier;
+
+---- Run 1: execution 0.363 ms, planning 0.365 ms ----
+GroupAggregate  (cost=1399.94..1401.46 rows=5 width=17) (actual time=0.320..0.335 rows=14 loops=1)
+  Group Key: pr.biome, pr.tier
+  Buffers: shared hit=145 read=1
+  ->  Sort  (cost=1399.94..1400.31 rows=147 width=13) (actual time=0.315..0.320 rows=101 loops=1)
+        Sort Key: pr.biome, pr.tier, s.problem_id
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=145 read=1
+        ->  Nested Loop  (cost=7.48..1394.65 rows=147 width=13) (actual time=0.079..0.279 rows=101 loops=1)
+              Buffers: shared hit=145 read=1
+              ->  Bitmap Heap Scan on submissions s  (cost=7.33..1386.03 rows=147 width=4) (actual time=0.063..0.210 rows=101 loops=1)
+                    Recheck Cond: (profile_id = 26)
+                    Filter: (((status)::text = 'done'::text) AND ((verdict)::text = 'AC'::text))
+                    Rows Removed by Filter: 168
+                    Heap Blocks: exact=109
+                    Buffers: shared hit=112
+                    ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.045..0.045 rows=269 loops=1)
+                          Index Cond: (profile_id = 26)
+                          Buffers: shared hit=3
+              ->  Memoize  (cost=0.15..0.30 rows=1 width=13) (actual time=0.000..0.000 rows=1 loops=101)
+                    Cache Key: s.problem_id
+                    Cache Mode: logical
+                    Hits: 84  Misses: 17  Evictions: 0  Overflows: 0  Memory Usage: 2kB
+                    Buffers: shared hit=33 read=1
+                    ->  Index Scan using problems_pkey on problems pr  (cost=0.14..0.29 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=17)
+                          Index Cond: (id = s.problem_id)
+                          Buffers: shared hit=33 read=1
+Planning:
+  Buffers: shared hit=82 read=10 dirtied=2
+Planning Time: 0.365 ms
+Execution Time: 0.363 ms
+
+---- Run 2: execution 0.254 ms, planning 0.222 ms ----
+GroupAggregate  (cost=1399.94..1401.46 rows=5 width=17) (actual time=0.218..0.233 rows=14 loops=1)
+  Group Key: pr.biome, pr.tier
+  Buffers: shared hit=146
+  ->  Sort  (cost=1399.94..1400.31 rows=147 width=13) (actual time=0.213..0.218 rows=101 loops=1)
+        Sort Key: pr.biome, pr.tier, s.problem_id
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=146
+        ->  Nested Loop  (cost=7.48..1394.65 rows=147 width=13) (actual time=0.031..0.180 rows=101 loops=1)
+              Buffers: shared hit=146
+              ->  Bitmap Heap Scan on submissions s  (cost=7.33..1386.03 rows=147 width=4) (actual time=0.022..0.113 rows=101 loops=1)
+                    Recheck Cond: (profile_id = 26)
+                    Filter: (((status)::text = 'done'::text) AND ((verdict)::text = 'AC'::text))
+                    Rows Removed by Filter: 168
+                    Heap Blocks: exact=109
+                    Buffers: shared hit=112
+                    ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.010..0.010 rows=269 loops=1)
+                          Index Cond: (profile_id = 26)
+                          Buffers: shared hit=3
+              ->  Memoize  (cost=0.15..0.30 rows=1 width=13) (actual time=0.000..0.000 rows=1 loops=101)
+                    Cache Key: s.problem_id
+                    Cache Mode: logical
+                    Hits: 84  Misses: 17  Evictions: 0  Overflows: 0  Memory Usage: 2kB
+                    Buffers: shared hit=34
+                    ->  Index Scan using problems_pkey on problems pr  (cost=0.14..0.29 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=17)
+                          Index Cond: (id = s.problem_id)
+                          Buffers: shared hit=34
+Planning:
+  Buffers: shared hit=92
+Planning Time: 0.222 ms
+Execution Time: 0.254 ms
+
+---- Run 3: execution 0.356 ms, planning 0.288 ms ----
+GroupAggregate  (cost=1399.94..1401.46 rows=5 width=17) (actual time=0.315..0.330 rows=14 loops=1)
+  Group Key: pr.biome, pr.tier
+  Buffers: shared hit=146
+  ->  Sort  (cost=1399.94..1400.31 rows=147 width=13) (actual time=0.309..0.314 rows=101 loops=1)
+        Sort Key: pr.biome, pr.tier, s.problem_id
+        Sort Method: quicksort  Memory: 28kB
+        Buffers: shared hit=146
+        ->  Nested Loop  (cost=7.48..1394.65 rows=147 width=13) (actual time=0.034..0.218 rows=101 loops=1)
+              Buffers: shared hit=146
+              ->  Bitmap Heap Scan on submissions s  (cost=7.33..1386.03 rows=147 width=4) (actual time=0.025..0.152 rows=101 loops=1)
+                    Recheck Cond: (profile_id = 26)
+                    Filter: (((status)::text = 'done'::text) AND ((verdict)::text = 'AC'::text))
+                    Rows Removed by Filter: 168
+                    Heap Blocks: exact=109
+                    Buffers: shared hit=112
+                    ->  Bitmap Index Scan on ix_submissions_profile_id  (cost=0.00..7.30 rows=383 width=0) (actual time=0.012..0.012 rows=269 loops=1)
+                          Index Cond: (profile_id = 26)
+                          Buffers: shared hit=3
+              ->  Memoize  (cost=0.15..0.30 rows=1 width=13) (actual time=0.000..0.000 rows=1 loops=101)
+                    Cache Key: s.problem_id
+                    Cache Mode: logical
+                    Hits: 84  Misses: 17  Evictions: 0  Overflows: 0  Memory Usage: 2kB
+                    Buffers: shared hit=34
+                    ->  Index Scan using problems_pkey on problems pr  (cost=0.14..0.29 rows=1 width=13) (actual time=0.001..0.001 rows=1 loops=17)
+                          Index Cond: (id = s.problem_id)
+                          Buffers: shared hit=34
+Planning:
+  Buffers: shared hit=92
+Planning Time: 0.288 ms
+Execution Time: 0.356 ms

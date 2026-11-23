@@ -1,0 +1,41 @@
+Q37 · WRITE · A player submits a card
+App: engine/actor.py:316 (session.merge of the new submission)
+
+INSERT INTO submissions (match_id, profile_id, problem_id, slot, language, code, cmd_id)
+VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 101, 3, 2, 'cpp',
+        E'#include <bits/stdc++.h>\nusing namespace std;\nint main(){long long n;cin>>n;cout<<__builtin_popcountll(n)<<"\\n";}',
+        'cmd-live-0001')
+RETURNING id;
+
+---- Run 1: execution 0.489 ms, planning 0.015 ms ----
+Insert on submissions  (cost=0.00..0.02 rows=1 width=457) (actual time=0.255..0.256 rows=1 loops=1)
+  Buffers: shared hit=16 read=17 dirtied=6
+  ->  Result  (cost=0.00..0.02 rows=1 width=457) (actual time=0.049..0.049 rows=1 loops=1)
+        Buffers: shared hit=11 read=1 dirtied=1
+Planning Time: 0.015 ms
+Trigger for constraint submissions_match_id_fkey: time=0.084 calls=1
+Trigger for constraint submissions_profile_id_fkey: time=0.044 calls=1
+Trigger for constraint submissions_problem_id_fkey: time=0.093 calls=1
+Execution Time: 0.489 ms
+
+---- Run 2: execution 0.361 ms, planning 0.014 ms ----
+Insert on submissions  (cost=0.00..0.02 rows=1 width=457) (actual time=0.201..0.201 rows=1 loops=1)
+  Buffers: shared hit=32 read=2 dirtied=2
+  ->  Result  (cost=0.00..0.02 rows=1 width=457) (actual time=0.034..0.034 rows=1 loops=1)
+        Buffers: shared hit=12
+Planning Time: 0.014 ms
+Trigger for constraint submissions_match_id_fkey: time=0.076 calls=1
+Trigger for constraint submissions_profile_id_fkey: time=0.036 calls=1
+Trigger for constraint submissions_problem_id_fkey: time=0.039 calls=1
+Execution Time: 0.361 ms
+
+---- Run 3: execution 0.518 ms, planning 0.024 ms ----
+Insert on submissions  (cost=0.00..0.02 rows=1 width=457) (actual time=0.250..0.251 rows=1 loops=1)
+  Buffers: shared hit=33 read=1 dirtied=1
+  ->  Result  (cost=0.00..0.02 rows=1 width=457) (actual time=0.052..0.053 rows=1 loops=1)
+        Buffers: shared hit=12
+Planning Time: 0.024 ms
+Trigger for constraint submissions_match_id_fkey: time=0.136 calls=1
+Trigger for constraint submissions_profile_id_fkey: time=0.055 calls=1
+Trigger for constraint submissions_problem_id_fkey: time=0.059 calls=1
+Execution Time: 0.518 ms

@@ -253,6 +253,14 @@ cp_battle/
   e2e/                    Playwright config + specs (two browser contexts)
   scripts/                load_test.py, make_types.py, dev.sh, ports.py, e2e_server.sh
   docs/PLAN.md            architecture, phases and gates, risks, decisions
+  dbms/                   the database write-up, all on PostgreSQL 16:
+    01_normalization.md   the data through 1NF, 2NF, 3NF and BCNF, table by table
+    02_er_diagram.png     entities, keys, cardinality (drawn from 03 by tools/er_diagram.py)
+    03_schema.sql         CREATE TABLE for all 17 tables, with foreign keys and CHECKs
+    04_queries.sql        every query the app runs (76), each marked -- READ or -- WRITE
+    05_query_timings.md   Run 1/2/3 and average for every query on 3.8 M rows, index advice
+    plans/                raw EXPLAIN (ANALYZE, BUFFERS) output per query
+    tools/                problem loader, benchmark data, timing runner, ER diagram, index trial
 ```
 
 ---
@@ -398,7 +406,7 @@ Written honestly, from most to least important:
 
 1. **Vite, Vitest and the Playwright test runner still need a run on macOS.** `tsc --noEmit` (TypeScript 5.9.3) and ESLint 9 have run against the installed packages and report nothing. The three bundler-based tools load macOS-only native binaries, so they could not run in the build sandbox. Their jobs were covered there by equivalents: the app was bundled with esbuild and Tailwind's compiler, the unit tests ran under a small Vitest-compatible runner, and the end-to-end flows ran with the Playwright library in Chromium. To confirm on your Mac: `make test-frontend build e2e`.
 2. **Docker was not available here.** DockerRunner, `Dockerfile.judge`, the API `Dockerfile` and `docker compose up` are written to the brief but untested; the 11 Docker tests skip without a daemon. The subprocess runner and the full escape suite were tested.
-3. **Alembic was not installed here.** The baseline migration is generated from the models and checked by building it with a stand-in for `alembic.op`; a real `alembic upgrade head` has not been run. The server adopts an existing pre-migration SQLite file by stamping it. Postgres is supported through SQLModel but untested.
+3. **Alembic was not installed here.** The baseline migration is generated from the models and checked by building it with a stand-in for `alembic.op`; a real `alembic upgrade head` has not been run. The server adopts an existing pre-migration SQLite file by stamping it. Postgres is supported through SQLModel; the schema and every query are verified on PostgreSQL 16 in `dbms/`, but the server itself has not been run against Postgres.
 4. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
 5. **The music was checked by measurement, not by ear.** Every track was rendered offline in Chromium and measured (levels, no clipping, the arrangement visible in a spectrogram), but nobody has listened to it here. Instruments and tracks are plain data in `audio/tracks.ts` and `audio/music.ts` if a sound needs tuning.
 6. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).

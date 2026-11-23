@@ -1,0 +1,48 @@
+Q76 · WRITE · Seed: create a bot profile if it does not exist
+App: seed.py:104-110 (ensure_bots: SELECT, then INSERT)
+
+INSERT INTO profiles (display_name, is_bot, personality, rating, peak_rating, avatar_color)
+SELECT 'Turtle', TRUE, 'turtle', 1200, 1200, '#22c55e'
+WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE is_bot AND personality = 'turtle');
+
+---- Run 1: execution 2.032 ms, planning 0.049 ms ----
+Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.016..2.017 rows=0 loops=1)
+  Buffers: shared hit=975
+  InitPlan 1 (returns $0)
+    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.013..2.014 rows=1 loops=1)
+          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
+          Rows Removed by Filter: 8933
+          Buffers: shared hit=975
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.015..2.015 rows=0 loops=1)
+        One-Time Filter: (NOT $0)
+        Buffers: shared hit=975
+Planning Time: 0.049 ms
+Execution Time: 2.032 ms
+
+---- Run 2: execution 2.157 ms, planning 0.048 ms ----
+Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.140..2.141 rows=0 loops=1)
+  Buffers: shared hit=975
+  InitPlan 1 (returns $0)
+    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.137..2.138 rows=1 loops=1)
+          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
+          Rows Removed by Filter: 8933
+          Buffers: shared hit=975
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.139..2.140 rows=0 loops=1)
+        One-Time Filter: (NOT $0)
+        Buffers: shared hit=975
+Planning Time: 0.048 ms
+Execution Time: 2.157 ms
+
+---- Run 3: execution 2.860 ms, planning 0.064 ms ----
+Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.836..2.837 rows=0 loops=1)
+  Buffers: shared hit=975
+  InitPlan 1 (returns $0)
+    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.833..2.833 rows=1 loops=1)
+          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
+          Rows Removed by Filter: 8933
+          Buffers: shared hit=975
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.835..2.836 rows=0 loops=1)
+        One-Time Filter: (NOT $0)
+        Buffers: shared hit=975
+Planning Time: 0.064 ms
+Execution Time: 2.860 ms
