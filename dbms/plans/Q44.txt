@@ -4,32 +4,32 @@ App: engine/actor.py:661 and :956-959 (_flag)
 INSERT INTO flags (match_id, profile_id, kind, severity, details)
 VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 101, 'judge_system_errors', 1, '{"count": 3}');
 
----- Run 1: execution 0.404 ms, planning 0.011 ms ----
-Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.266..0.266 rows=0 loops=1)
-  Buffers: shared hit=45 read=16 dirtied=6
-  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.045..0.045 rows=1 loops=1)
+---- Run 1: execution 0.542 ms, planning 0.019 ms ----
+Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.308..0.309 rows=0 loops=1)
+  Buffers: shared hit=45 read=15 dirtied=5
+  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.062..0.062 rows=1 loops=1)
         Buffers: shared hit=11 read=1 dirtied=1
-Planning Time: 0.011 ms
-Trigger for constraint flags_match_id_fkey: time=0.095 calls=1
-Trigger for constraint flags_profile_id_fkey: time=0.036 calls=1
-Execution Time: 0.404 ms
+Planning Time: 0.019 ms
+Trigger for constraint flags_match_id_fkey: time=0.152 calls=1
+Trigger for constraint flags_profile_id_fkey: time=0.070 calls=1
+Execution Time: 0.542 ms
 
----- Run 2: execution 0.237 ms, planning 0.010 ms ----
-Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.122..0.122 rows=0 loops=1)
+---- Run 2: execution 0.398 ms, planning 0.017 ms ----
+Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.200..0.201 rows=0 loops=1)
   Buffers: shared hit=60
-  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.016..0.016 rows=1 loops=1)
+  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.025..0.025 rows=1 loops=1)
         Buffers: shared hit=12
-Planning Time: 0.010 ms
-Trigger for constraint flags_match_id_fkey: time=0.076 calls=1
-Trigger for constraint flags_profile_id_fkey: time=0.032 calls=1
-Execution Time: 0.237 ms
+Planning Time: 0.017 ms
+Trigger for constraint flags_match_id_fkey: time=0.131 calls=1
+Trigger for constraint flags_profile_id_fkey: time=0.057 calls=1
+Execution Time: 0.398 ms
 
----- Run 3: execution 0.366 ms, planning 0.029 ms ----
-Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.181..0.181 rows=0 loops=1)
+---- Run 3: execution 0.378 ms, planning 0.019 ms ----
+Insert on flags  (cost=0.00..0.02 rows=0 width=0) (actual time=0.157..0.158 rows=0 loops=1)
   Buffers: shared hit=60
-  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.026..0.026 rows=1 loops=1)
+  ->  Result  (cost=0.00..0.02 rows=1 width=274) (actual time=0.023..0.024 rows=1 loops=1)
         Buffers: shared hit=12
-Planning Time: 0.029 ms
-Trigger for constraint flags_match_id_fkey: time=0.124 calls=1
-Trigger for constraint flags_profile_id_fkey: time=0.049 calls=1
-Execution Time: 0.366 ms
+Planning Time: 0.019 ms
+Trigger for constraint flags_match_id_fkey: time=0.140 calls=1
+Trigger for constraint flags_profile_id_fkey: time=0.067 calls=1
+Execution Time: 0.378 ms

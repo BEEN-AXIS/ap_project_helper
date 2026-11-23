@@ -5,44 +5,44 @@ INSERT INTO profiles (display_name, is_bot, personality, rating, peak_rating, av
 SELECT 'Turtle', TRUE, 'turtle', 1200, 1200, '#22c55e'
 WHERE NOT EXISTS (SELECT 1 FROM profiles WHERE is_bot AND personality = 'turtle');
 
----- Run 1: execution 2.032 ms, planning 0.049 ms ----
-Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.016..2.017 rows=0 loops=1)
-  Buffers: shared hit=975
+---- Run 1: execution 0.035 ms, planning 0.088 ms ----
+Insert on profiles  (cost=8.15..8.17 rows=0 width=0) (actual time=0.013..0.013 rows=0 loops=1)
+  Buffers: shared hit=2
   InitPlan 1 (returns $0)
-    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.013..2.014 rows=1 loops=1)
-          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
-          Rows Removed by Filter: 8933
-          Buffers: shared hit=975
-  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.015..2.015 rows=0 loops=1)
+    ->  Index Only Scan using ix_profiles_bot_personality on profiles profiles_1  (cost=0.13..8.15 rows=1 width=0) (actual time=0.010..0.011 rows=1 loops=1)
+          Index Cond: (personality = 'turtle'::text)
+          Heap Fetches: 0
+          Buffers: shared hit=2
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=0.012..0.012 rows=0 loops=1)
         One-Time Filter: (NOT $0)
-        Buffers: shared hit=975
-Planning Time: 0.049 ms
-Execution Time: 2.032 ms
+        Buffers: shared hit=2
+Planning Time: 0.088 ms
+Execution Time: 0.035 ms
 
----- Run 2: execution 2.157 ms, planning 0.048 ms ----
-Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.140..2.141 rows=0 loops=1)
-  Buffers: shared hit=975
+---- Run 2: execution 0.023 ms, planning 0.086 ms ----
+Insert on profiles  (cost=8.15..8.17 rows=0 width=0) (actual time=0.008..0.008 rows=0 loops=1)
+  Buffers: shared hit=2
   InitPlan 1 (returns $0)
-    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.137..2.138 rows=1 loops=1)
-          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
-          Rows Removed by Filter: 8933
-          Buffers: shared hit=975
-  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.139..2.140 rows=0 loops=1)
+    ->  Index Only Scan using ix_profiles_bot_personality on profiles profiles_1  (cost=0.13..8.15 rows=1 width=0) (actual time=0.006..0.006 rows=1 loops=1)
+          Index Cond: (personality = 'turtle'::text)
+          Heap Fetches: 0
+          Buffers: shared hit=2
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=0.008..0.008 rows=0 loops=1)
         One-Time Filter: (NOT $0)
-        Buffers: shared hit=975
-Planning Time: 0.048 ms
-Execution Time: 2.157 ms
+        Buffers: shared hit=2
+Planning Time: 0.086 ms
+Execution Time: 0.023 ms
 
----- Run 3: execution 2.860 ms, planning 0.064 ms ----
-Insert on profiles  (cost=1789.06..1789.08 rows=0 width=0) (actual time=2.836..2.837 rows=0 loops=1)
-  Buffers: shared hit=975
+---- Run 3: execution 0.026 ms, planning 0.067 ms ----
+Insert on profiles  (cost=8.15..8.17 rows=0 width=0) (actual time=0.011..0.011 rows=0 loops=1)
+  Buffers: shared hit=2
   InitPlan 1 (returns $0)
-    ->  Seq Scan on profiles profiles_1  (cost=0.00..1789.06 rows=1 width=0) (actual time=2.833..2.833 rows=1 loops=1)
-          Filter: (is_bot AND ((personality)::text = 'turtle'::text))
-          Rows Removed by Filter: 8933
-          Buffers: shared hit=975
-  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=2.835..2.836 rows=0 loops=1)
+    ->  Index Only Scan using ix_profiles_bot_personality on profiles profiles_1  (cost=0.13..8.15 rows=1 width=0) (actual time=0.008..0.009 rows=1 loops=1)
+          Index Cond: (personality = 'turtle'::text)
+          Heap Fetches: 0
+          Buffers: shared hit=2
+  ->  Result  (cost=0.00..0.02 rows=1 width=857) (actual time=0.010..0.010 rows=0 loops=1)
         One-Time Filter: (NOT $0)
-        Buffers: shared hit=975
-Planning Time: 0.064 ms
-Execution Time: 2.860 ms
+        Buffers: shared hit=2
+Planning Time: 0.067 ms
+Execution Time: 0.026 ms

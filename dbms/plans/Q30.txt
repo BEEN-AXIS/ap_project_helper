@@ -7,32 +7,29 @@ WHERE is_bot
   AND personality = 'gambler'
 LIMIT 1;
 
----- Run 1: execution 2.080 ms, planning 0.038 ms ----
-Limit  (cost=0.00..1789.06 rows=1 width=365) (actual time=2.068..2.070 rows=1 loops=1)
-  Buffers: shared hit=975
-  ->  Seq Scan on profiles  (cost=0.00..1789.06 rows=1 width=365) (actual time=2.067..2.067 rows=1 loops=1)
-        Filter: (is_bot AND ((personality)::text = 'gambler'::text))
-        Rows Removed by Filter: 8929
-        Buffers: shared hit=975
-Planning Time: 0.038 ms
-Execution Time: 2.080 ms
+---- Run 1: execution 0.055 ms, planning 0.091 ms ----
+Limit  (cost=0.13..8.15 rows=1 width=365) (actual time=0.042..0.043 rows=1 loops=1)
+  Buffers: shared hit=1 read=1
+  ->  Index Scan using ix_profiles_bot_personality on profiles  (cost=0.13..8.15 rows=1 width=365) (actual time=0.041..0.041 rows=1 loops=1)
+        Index Cond: ((personality)::text = 'gambler'::text)
+        Buffers: shared hit=1 read=1
+Planning Time: 0.091 ms
+Execution Time: 0.055 ms
 
----- Run 2: execution 1.852 ms, planning 0.030 ms ----
-Limit  (cost=0.00..1789.06 rows=1 width=365) (actual time=1.842..1.843 rows=1 loops=1)
-  Buffers: shared hit=975
-  ->  Seq Scan on profiles  (cost=0.00..1789.06 rows=1 width=365) (actual time=1.840..1.840 rows=1 loops=1)
-        Filter: (is_bot AND ((personality)::text = 'gambler'::text))
-        Rows Removed by Filter: 8929
-        Buffers: shared hit=975
-Planning Time: 0.030 ms
-Execution Time: 1.852 ms
+---- Run 2: execution 0.022 ms, planning 0.106 ms ----
+Limit  (cost=0.13..8.15 rows=1 width=365) (actual time=0.009..0.010 rows=1 loops=1)
+  Buffers: shared hit=2
+  ->  Index Scan using ix_profiles_bot_personality on profiles  (cost=0.13..8.15 rows=1 width=365) (actual time=0.008..0.008 rows=1 loops=1)
+        Index Cond: ((personality)::text = 'gambler'::text)
+        Buffers: shared hit=2
+Planning Time: 0.106 ms
+Execution Time: 0.022 ms
 
----- Run 3: execution 2.591 ms, planning 0.050 ms ----
-Limit  (cost=0.00..1789.06 rows=1 width=365) (actual time=2.578..2.579 rows=1 loops=1)
-  Buffers: shared hit=975
-  ->  Seq Scan on profiles  (cost=0.00..1789.06 rows=1 width=365) (actual time=2.577..2.577 rows=1 loops=1)
-        Filter: (is_bot AND ((personality)::text = 'gambler'::text))
-        Rows Removed by Filter: 8929
-        Buffers: shared hit=975
-Planning Time: 0.050 ms
-Execution Time: 2.591 ms
+---- Run 3: execution 0.014 ms, planning 0.047 ms ----
+Limit  (cost=0.13..8.15 rows=1 width=365) (actual time=0.007..0.007 rows=1 loops=1)
+  Buffers: shared hit=2
+  ->  Index Scan using ix_profiles_bot_personality on profiles  (cost=0.13..8.15 rows=1 width=365) (actual time=0.005..0.006 rows=1 loops=1)
+        Index Cond: ((personality)::text = 'gambler'::text)
+        Buffers: shared hit=2
+Planning Time: 0.047 ms
+Execution Time: 0.014 ms

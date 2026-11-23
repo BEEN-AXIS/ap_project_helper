@@ -9,68 +9,38 @@ FROM (SELECT *
 WHERE lower(player1_name || player2_name || id) LIKE '%player_1%'
 ORDER BY created_at DESC;
 
----- Run 1: execution 71.810 ms, planning 0.090 ms ----
-Subquery Scan on recent  (cost=23013.18..23026.85 rows=1 width=94) (actual time=71.580..71.768 rows=79 loops=1)
+---- Run 1: execution 0.479 ms, planning 0.124 ms ----
+Subquery Scan on recent  (cost=0.29..24.92 rows=1 width=94) (actual time=0.023..0.446 rows=79 loops=1)
   Filter: (lower((((recent.player1_name)::text || (recent.player2_name)::text) || (recent.id)::text)) ~~ '%player_1%'::text)
   Rows Removed by Filter: 21
-  Buffers: shared hit=224 read=19851
-  ->  Limit  (cost=23013.18..23024.85 rows=100 width=742) (actual time=71.567..71.696 rows=100 loops=1)
-        Buffers: shared hit=224 read=19851
-        ->  Gather Merge  (cost=23013.18..32741.06 rows=83376 width=742) (actual time=71.565..71.687 rows=100 loops=1)
-              Workers Planned: 2
-              Workers Launched: 2
-              Buffers: shared hit=224 read=19851
-              ->  Sort  (cost=22013.16..22117.38 rows=41688 width=742) (actual time=63.598..63.606 rows=84 loops=3)
-                    Sort Key: matches.created_at DESC
-                    Sort Method: top-N heapsort  Memory: 61kB
-                    Buffers: shared hit=224 read=19851
-                    Worker 0:  Sort Method: top-N heapsort  Memory: 64kB
-                    Worker 1:  Sort Method: top-N heapsort  Memory: 61kB
-                    ->  Parallel Seq Scan on matches  (cost=0.00..20419.88 rows=41688 width=742) (actual time=0.020..30.802 rows=33350 loops=3)
-                          Buffers: shared hit=152 read=19851
-Planning Time: 0.090 ms
-Execution Time: 71.810 ms
+  Buffers: shared hit=14 read=24
+  ->  Limit  (cost=0.29..22.92 rows=100 width=742) (actual time=0.013..0.337 rows=100 loops=1)
+        Buffers: shared hit=14 read=24
+        ->  Index Scan Backward using ix_matches_created_at on matches  (cost=0.29..22637.13 rows=100050 width=742) (actual time=0.012..0.312 rows=100 loops=1)
+              Buffers: shared hit=14 read=24
+Planning Time: 0.124 ms
+Execution Time: 0.479 ms
 
----- Run 2: execution 84.031 ms, planning 0.073 ms ----
-Subquery Scan on recent  (cost=23014.28..23027.95 rows=1 width=94) (actual time=83.790..83.995 rows=79 loops=1)
+---- Run 2: execution 0.308 ms, planning 0.161 ms ----
+Subquery Scan on recent  (cost=0.29..24.92 rows=1 width=94) (actual time=0.023..0.275 rows=79 loops=1)
   Filter: (lower((((recent.player1_name)::text || (recent.player2_name)::text) || (recent.id)::text)) ~~ '%player_1%'::text)
   Rows Removed by Filter: 21
-  Buffers: shared hit=487 read=19589
-  ->  Limit  (cost=23014.28..23025.95 rows=100 width=742) (actual time=83.775..83.903 rows=100 loops=1)
-        Buffers: shared hit=487 read=19589
-        ->  Gather Merge  (cost=23014.28..32742.63 rows=83380 width=742) (actual time=83.773..83.893 rows=100 loops=1)
-              Workers Planned: 2
-              Workers Launched: 2
-              Buffers: shared hit=487 read=19589
-              ->  Sort  (cost=22014.26..22118.48 rows=41690 width=742) (actual time=76.622..76.633 rows=87 loops=3)
-                    Sort Key: matches.created_at DESC
-                    Sort Method: top-N heapsort  Memory: 61kB
-                    Buffers: shared hit=487 read=19589
-                    Worker 0:  Sort Method: top-N heapsort  Memory: 63kB
-                    Worker 1:  Sort Method: top-N heapsort  Memory: 63kB
-                    ->  Parallel Seq Scan on matches  (cost=0.00..20420.90 rows=41690 width=742) (actual time=0.027..47.770 rows=33350 loops=3)
-                          Buffers: shared hit=415 read=19589
-Planning Time: 0.073 ms
-Execution Time: 84.031 ms
+  Buffers: shared hit=113
+  ->  Limit  (cost=0.29..22.92 rows=100 width=742) (actual time=0.014..0.178 rows=100 loops=1)
+        Buffers: shared hit=113
+        ->  Index Scan Backward using ix_matches_created_at on matches  (cost=0.29..22637.13 rows=100050 width=742) (actual time=0.013..0.167 rows=100 loops=1)
+              Buffers: shared hit=113
+Planning Time: 0.161 ms
+Execution Time: 0.308 ms
 
----- Run 3: execution 98.409 ms, planning 0.081 ms ----
-Subquery Scan on recent  (cost=23015.38..23029.05 rows=1 width=94) (actual time=95.907..98.358 rows=79 loops=1)
+---- Run 3: execution 0.211 ms, planning 0.079 ms ----
+Subquery Scan on recent  (cost=0.29..24.92 rows=1 width=94) (actual time=0.019..0.188 rows=79 loops=1)
   Filter: (lower((((recent.player1_name)::text || (recent.player2_name)::text) || (recent.id)::text)) ~~ '%player_1%'::text)
   Rows Removed by Filter: 21
-  Buffers: shared hit=690 read=19387
-  ->  Limit  (cost=23015.38..23027.05 rows=100 width=742) (actual time=95.889..98.243 rows=100 loops=1)
-        Buffers: shared hit=690 read=19387
-        ->  Gather Merge  (cost=23015.38..32744.19 rows=83384 width=742) (actual time=95.887..98.229 rows=100 loops=1)
-              Workers Planned: 2
-              Workers Launched: 2
-              Buffers: shared hit=690 read=19387
-              ->  Sort  (cost=22015.35..22119.58 rows=41692 width=742) (actual time=88.435..88.444 rows=86 loops=3)
-                    Sort Key: matches.created_at DESC
-                    Sort Method: top-N heapsort  Memory: 61kB
-                    Buffers: shared hit=690 read=19387
-                    Worker 0:  Sort Method: top-N heapsort  Memory: 64kB
-                    Worker 1:  Sort Method: top-N heapsort  Memory: 62kB
-                    ->  Parallel Seq Scan on matches  (cost=0.00..20421.92 rows=41692 width=742) (actual time=0.032..41.015 rows=33350 loops=3)
-                          Buffers: shared hit=618 read=19387
-Planning Time: 0.081 ms
-Execution Time: 98.409 ms
+  Buffers: shared hit=113
+  ->  Limit  (cost=0.29..22.92 rows=100 width=742) (actual time=0.012..0.123 rows=100 loops=1)
+        Buffers: shared hit=113
+        ->  Index Scan Backward using ix_matches_created_at on matches  (cost=0.29..22637.13 rows=100050 width=742) (actual time=0.011..0.115 rows=100 loops=1)
+              Buffers: shared hit=113
+Planning Time: 0.079 ms
+Execution Time: 0.211 ms

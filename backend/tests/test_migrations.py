@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import sys
 import types
+import warnings
 from pathlib import Path
 
 import sqlalchemy as sa
@@ -16,7 +17,7 @@ from sqlmodel import SQLModel
 import app.models  # noqa: F401
 
 VERSIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
-MIGRATIONS = ["0001_initial.py", "0002_equipped_weapon.py"]
+MIGRATIONS = ["0001_initial.py", "0002_equipped_weapon.py", "0003_query_indexes.py"]
 
 
 def _schema(engine: sa.Engine) -> dict:
@@ -24,10 +25,15 @@ def _schema(engine: sa.Engine) -> dict:
     out = {}
     for t in sorted(insp.get_table_names()):
         cols = {c["name"]: (str(c["type"]), c["nullable"]) for c in insp.get_columns(t)}
-        idx = sorted((i["name"], tuple(i["column_names"]), bool(i["unique"])) for i in insp.get_indexes(t))
-        uq = sorted(tuple(u["column_names"]) for u in insp.get_unique_constraints(t))
+        with warnings.catch_warnings():   # expression indexes are not reflected; the DDL below covers them
+            warnings.filterwarnings("ignore", "Skipped unsupported reflection")
+            idx = sorted((i["name"], tuple(i["column_names"]), bool(i["unique"])) for i in insp.get_indexes(t))
+            uq = sorted(tuple(u["column_names"]) for u in insp.get_unique_constraints(t))
         pk = tuple(insp.get_pk_constraint(t)["constrained_columns"])
-        out[t] = (cols, idx, uq, pk)
+        # the index DDL as SQLite stored it: covers expressions, DESC and partial WHERE clauses
+        ddl = sorted(" ".join(sql.split()) for (sql,) in engine.connect().exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", (t,)))
+        out[t] = (cols, idx, uq, pk, ddl)
     return out
 
 
@@ -44,9 +50,11 @@ def test_migrations_build_the_model_schema(tmp_path: Path) -> None:
         tbl.create(conn)
         return tbl
 
-    def create_index(name, table, columns, unique=False):
+    def create_index(name, table, columns, unique=False, **kw):
+        # like alembic: names are columns, text() is an expression (lower(x), x DESC)
         tbl = md.tables[table]
-        sa.Index(name, *[tbl.c[c] for c in columns], unique=unique).create(conn)
+        elems = [tbl.c[c] if isinstance(c, str) else sa.literal_column(c.text) for c in columns]
+        sa.Index(name, *elems, unique=unique, _table=tbl, **kw).create(conn)
 
     class Batch:
         def __init__(self, table: str) -> None:

@@ -6,44 +6,44 @@ FROM flags
 ORDER BY created_at DESC
 LIMIT 200;
 
----- Run 1: execution 0.561 ms, planning 0.107 ms ----
-Limit  (cost=139.44..139.94 rows=200 width=95) (actual time=0.525..0.547 rows=200 loops=1)
-  Buffers: shared hit=1 read=32
-  ->  Sort  (cost=139.44..144.44 rows=2000 width=95) (actual time=0.524..0.533 rows=200 loops=1)
+---- Run 1: execution 0.734 ms, planning 0.119 ms ----
+Limit  (cost=140.44..140.94 rows=200 width=95) (actual time=0.689..0.716 rows=200 loops=1)
+  Buffers: shared hit=1 read=33 dirtied=1
+  ->  Sort  (cost=140.44..145.44 rows=2000 width=95) (actual time=0.687..0.698 rows=200 loops=1)
         Sort Key: created_at DESC
         Sort Method: top-N heapsort  Memory: 69kB
-        Buffers: shared hit=1 read=32
-        ->  Seq Scan on flags  (cost=0.00..53.00 rows=2000 width=95) (actual time=0.008..0.268 rows=2001 loops=1)
-              Buffers: shared hit=1 read=32
+        Buffers: shared hit=1 read=33 dirtied=1
+        ->  Seq Scan on flags  (cost=0.00..54.00 rows=2000 width=95) (actual time=0.014..0.370 rows=2001 loops=1)
+              Buffers: shared hit=1 read=33 dirtied=1
 Planning:
-  Buffers: shared hit=29 read=1 dirtied=1
-Planning Time: 0.107 ms
-Execution Time: 0.561 ms
+  Buffers: shared hit=25 read=3
+Planning Time: 0.119 ms
+Execution Time: 0.734 ms
 
----- Run 2: execution 0.456 ms, planning 0.107 ms ----
-Limit  (cost=139.44..139.94 rows=200 width=95) (actual time=0.420..0.442 rows=200 loops=1)
-  Buffers: shared hit=33
-  ->  Sort  (cost=139.44..144.44 rows=2000 width=95) (actual time=0.419..0.428 rows=200 loops=1)
+---- Run 2: execution 0.657 ms, planning 0.136 ms ----
+Limit  (cost=140.44..140.94 rows=200 width=95) (actual time=0.607..0.636 rows=200 loops=1)
+  Buffers: shared hit=34
+  ->  Sort  (cost=140.44..145.44 rows=2000 width=95) (actual time=0.606..0.618 rows=200 loops=1)
         Sort Key: created_at DESC
         Sort Method: top-N heapsort  Memory: 69kB
-        Buffers: shared hit=33
-        ->  Seq Scan on flags  (cost=0.00..53.00 rows=2000 width=95) (actual time=0.006..0.151 rows=2001 loops=1)
-              Buffers: shared hit=33
+        Buffers: shared hit=34
+        ->  Seq Scan on flags  (cost=0.00..54.00 rows=2000 width=95) (actual time=0.008..0.269 rows=2001 loops=1)
+              Buffers: shared hit=34
 Planning:
   Buffers: shared hit=28
-Planning Time: 0.107 ms
-Execution Time: 0.456 ms
+Planning Time: 0.136 ms
+Execution Time: 0.657 ms
 
----- Run 3: execution 0.678 ms, planning 0.125 ms ----
-Limit  (cost=139.44..139.94 rows=200 width=95) (actual time=0.591..0.623 rows=200 loops=1)
-  Buffers: shared hit=33
-  ->  Sort  (cost=139.44..144.44 rows=2000 width=95) (actual time=0.589..0.603 rows=200 loops=1)
+---- Run 3: execution 0.454 ms, planning 0.081 ms ----
+Limit  (cost=140.44..140.94 rows=200 width=95) (actual time=0.418..0.441 rows=200 loops=1)
+  Buffers: shared hit=34
+  ->  Sort  (cost=140.44..145.44 rows=2000 width=95) (actual time=0.418..0.426 rows=200 loops=1)
         Sort Key: created_at DESC
         Sort Method: top-N heapsort  Memory: 69kB
-        Buffers: shared hit=33
-        ->  Seq Scan on flags  (cost=0.00..53.00 rows=2000 width=95) (actual time=0.010..0.219 rows=2001 loops=1)
-              Buffers: shared hit=33
+        Buffers: shared hit=34
+        ->  Seq Scan on flags  (cost=0.00..54.00 rows=2000 width=95) (actual time=0.005..0.142 rows=2001 loops=1)
+              Buffers: shared hit=34
 Planning:
   Buffers: shared hit=28
-Planning Time: 0.125 ms
-Execution Time: 0.678 ms
+Planning Time: 0.081 ms
+Execution Time: 0.454 ms

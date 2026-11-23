@@ -331,10 +331,10 @@ WHERE me.id = 26;
 
 -- =============================================================================
 -- Q24 · READ · Leaderboard, all time: the top 100 by rating
--- App: api/players.py:203-229 (loads every human profile and sorts in Python);
--- here the database ranks. Tier is derived from rating (it is not stored).
--- Ordering by the same keys as the window (not by "rank") gives the same rows
--- and lets an index on (rating DESC, lower(display_name)) stop after 100.
+-- App: api/players.py:207-208 (the same ORDER BY and LIMIT; the app numbers the
+-- rows and derives the tier in Python). Tier is derived from rating, not stored.
+-- Ordering by the window's keys rather than by "rank" gives the same rows and
+-- lets ix_profiles_ladder hand back the first 100 in order, with no sort.
 -- =============================================================================
 -- READ
 SELECT row_number() OVER (ORDER BY rating DESC, lower(display_name)) AS rank,
@@ -351,9 +351,10 @@ LIMIT 100;
 -- =============================================================================
 -- Q25 · READ · Leaderboard, this week: rating gained in matches that ended in
 -- the last 7 days
--- App: api/players.py:203-222 (reads the matches, sums result.sides[n].delta
--- per player in Python); here each match is split into its two sides with a
--- LATERAL VALUES list and joined to profiles.
+-- App: api/players.py:211-232 (reads the week's matches, three columns, through
+-- ix_matches_finished_end_time and sums result.sides[n].delta per player in
+-- Python); here each match is split into its two sides with a LATERAL VALUES
+-- list and joined to profiles.
 -- =============================================================================
 -- READ
 SELECT row_number() OVER (ORDER BY sum(x.delta) DESC, lower(p.display_name)) AS rank,
@@ -372,8 +373,9 @@ LIMIT 100;
 
 -- =============================================================================
 -- Q26 · READ · Leaderboard for one map: most wins there
--- App: api/players.py:209-218 (map filter); here the winner's profile is joined
--- through the side that won.
+-- App: api/players.py:211-222 (reads the map's won matches, three columns, from
+-- ix_matches_map_winners and counts wins in Python); here the winner's profile
+-- is joined through the side that won.
 -- =============================================================================
 -- READ
 SELECT row_number() OVER (ORDER BY count(*) DESC, lower(p.display_name)) AS rank,
@@ -388,6 +390,19 @@ WHERE m.status = 'finished'
 GROUP BY p.id
 ORDER BY rank
 LIMIT 100;
+
+-- =============================================================================
+-- Q77 · READ · Leaderboard, all time: my place when I am outside the top 100
+-- App: api/players.py:243-245 (_ladder_place). The people ordered ahead of me
+-- on the board: rated higher, or rated the same with a name that sorts first.
+-- Player 26 is rated 1367.
+-- =============================================================================
+-- READ
+SELECT count(*) + 1 AS rank
+FROM profiles
+WHERE NOT is_bot
+  AND user_id IS NOT NULL
+  AND (rating > 1367 OR (rating = 1367 AND lower(display_name) < lower('player_26')));
 
 -- #############################################################################
 -- Problems
@@ -409,7 +424,7 @@ ORDER BY p.id, t.idx;
 
 -- =============================================================================
 -- Q28 · READ · Practice browser: every problem with whether I have solved it
--- App: api/players.py:247 (the solved set; the list itself comes from the
+-- App: api/players.py:272 (the solved set; the list itself comes from the
 -- cache); here the list and the solved flag in one LEFT JOIN.
 -- =============================================================================
 -- READ

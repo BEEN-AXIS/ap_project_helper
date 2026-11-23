@@ -13,6 +13,7 @@ from typing import Any, TypeVar
 
 import anyio
 from sqlalchemy import event
+from sqlalchemy.schema import CreateIndex
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.core.config import BACKEND_DIR, get_settings
@@ -102,3 +103,9 @@ def init_db(use_migrations: bool | None = None) -> None:
         except ImportError:
             log.warning("alembic is not installed; creating tables directly")
     SQLModel.metadata.create_all(get_engine())
+    # create_all skips tables that already exist, indexes included: add any index
+    # a newer version of the models declares (without Alembic there is no migration)
+    with get_engine().begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            for index in table.indexes:
+                conn.execute(CreateIndex(index, if_not_exists=True))

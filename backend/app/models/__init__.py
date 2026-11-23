@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Column, Index, Text, UniqueConstraint
+from sqlalchemy import JSON, Column, Index, Text, UniqueConstraint, func
 from sqlmodel import Field, SQLModel
 
 
@@ -347,6 +347,29 @@ class Report(SQLModel, table=True):
 
 
 Index("ix_rating_history_profile_created", RatingHistory.profile_id, RatingHistory.created_at)  # type: ignore[arg-type]
+
+# Indexes for the reads that scanned whole tables in dbms/05_query_timings.md. The
+# WHERE clauses repeat the app's own filters word for word, so both SQLite and
+# PostgreSQL can tell that a query is covered by the partial index.
+_PEOPLE = (Profile.is_bot == False) & (Profile.user_id != None)  # noqa: E711, E712
+_BOTS = Profile.is_bot == True  # noqa: E712
+_FINISHED = Match.status == "finished"
+_WON = _FINISHED & (Match.winner_side != None)  # noqa: E711
+
+# all-time leaderboard (top 100 read in order) and "how many rate higher"
+Index("ix_profiles_ladder", Profile.rating.desc(), func.lower(Profile.display_name),  # type: ignore[attr-defined]
+      sqlite_where=_PEOPLE, postgresql_where=_PEOPLE)
+# profile pages find a player by name, ignoring case
+Index("ix_profiles_display_name_lower", func.lower(Profile.display_name))
+# matchmaking and the seed find a bot by personality
+Index("ix_profiles_bot_personality", Profile.personality, sqlite_where=_BOTS, postgresql_where=_BOTS)  # type: ignore[arg-type]
+# admin: the latest matches
+Index("ix_matches_created_at", Match.created_at)  # type: ignore[arg-type]
+# weekly leaderboard: matches that finished since a date
+Index("ix_matches_finished_end_time", Match.end_time, sqlite_where=_FINISHED, postgresql_where=_FINISHED)  # type: ignore[arg-type]
+# map leaderboard: wins on one map (on PostgreSQL answered from the index alone)
+Index("ix_matches_map_winners", Match.map, sqlite_where=_WON, postgresql_where=_WON,
+      postgresql_include=["winner_side", "player1_profile_id", "player2_profile_id"])
 
 __all__ = [
     "Achievement", "AuditLog", "Draft", "Flag", "Inventory", "Match", "MatchEvent", "Problem", "Profile",

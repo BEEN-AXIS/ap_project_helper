@@ -1,6 +1,7 @@
 Q26 · READ · Leaderboard for one map: most wins there
-App: api/players.py:209-218 (map filter); here the winner's profile is joined
-through the side that won.
+App: api/players.py:211-222 (reads the map's won matches, three columns, from
+ix_matches_map_winners and counts wins in Python); here the winner's profile
+is joined through the side that won.
 
 SELECT row_number() OVER (ORDER BY count(*) DESC, lower(p.display_name)) AS rank,
        p.id AS profile_id, p.display_name AS name, p.rating, count(*) AS score
@@ -15,104 +16,104 @@ GROUP BY p.id
 ORDER BY rank
 LIMIT 100;
 
----- Run 1: execution 91.086 ms, planning 0.324 ms ----
-Limit  (cost=25555.76..25556.01 rows=100 width=68) (actual time=90.963..90.979 rows=100 loops=1)
-  Buffers: shared hit=1659 read=19883
-  ->  Sort  (cost=25555.76..25590.21 rows=13779 width=68) (actual time=90.962..90.970 rows=100 loops=1)
+---- Run 1: execution 48.989 ms, planning 0.438 ms ----
+Limit  (cost=4551.90..4552.15 rows=100 width=68) (actual time=48.777..48.797 rows=100 loops=1)
+  Buffers: shared hit=1494 read=118
+  ->  Sort  (cost=4551.90..4586.20 rows=13720 width=68) (actual time=48.775..48.784 rows=100 loops=1)
         Sort Key: (row_number() OVER (?))
         Sort Method: top-N heapsort  Memory: 38kB
-        Buffers: shared hit=1659 read=19883
-        ->  WindowAgg  (cost=24719.11..25029.14 rows=13779 width=68) (actual time=88.009..89.766 rows=8053 loops=1)
-              Buffers: shared hit=1659 read=19883
-              ->  Sort  (cost=24719.11..24753.56 rows=13779 width=60) (actual time=87.999..88.455 rows=8053 loops=1)
+        Buffers: shared hit=1494 read=118
+        ->  WindowAgg  (cost=3718.83..4027.53 rows=13720 width=68) (actual time=44.252..47.237 rows=8053 loops=1)
+              Buffers: shared hit=1494 read=118
+              ->  Sort  (cost=3718.83..3753.13 rows=13720 width=60) (actual time=44.234..45.118 rows=8053 loops=1)
                     Sort Key: (count(*)) DESC, (lower((p.display_name)::text))
                     Sort Method: quicksort  Memory: 758kB
-                    Buffers: shared hit=1659 read=19883
-                    ->  HashAggregate  (cost=23599.56..23771.79 rows=13779 width=60) (actual time=79.238..81.973 rows=8053 loops=1)
+                    Buffers: shared hit=1494 read=118
+                    ->  HashAggregate  (cost=2604.49..2775.99 rows=13720 width=60) (actual time=31.899..36.477 rows=8053 loops=1)
                           Group Key: p.id
                           Batches: 1  Memory Usage: 1425kB
-                          Buffers: shared hit=1659 read=19883
-                          ->  Hash Join  (cost=1988.99..23530.66 rows=13779 width=20) (actual time=13.420..73.651 rows=11335 loops=1)
+                          Buffers: shared hit=1494 read=118
+                          ->  Hash Join  (cost=1989.40..2535.89 rows=13720 width=20) (actual time=16.527..25.489 rows=11335 loops=1)
                                 Hash Cond: (CASE m.winner_side WHEN 1 THEN m.player1_profile_id ELSE m.player2_profile_id END = p.id)
-                                Buffers: shared hit=1659 read=19883
-                                ->  Seq Scan on matches m  (cost=0.00..21503.75 rows=13786 width=12) (actual time=0.041..52.283 rows=14012 loops=1)
-                                      Filter: ((winner_side IS NOT NULL) AND ((status)::text = 'finished'::text) AND ((map)::text = 'prestige'::text))
-                                      Rows Removed by Filter: 86038
-                                      Buffers: shared hit=120 read=19883
-                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=13.344..13.346 rows=20001 loops=1)
+                                Buffers: shared hit=1494 read=118
+                                ->  Index Only Scan using ix_matches_map_winners on matches m  (cost=0.42..509.15 rows=13727 width=12) (actual time=0.131..3.006 rows=14012 loops=1)
+                                      Index Cond: (map = 'prestige'::text)
+                                      Heap Fetches: 0
+                                      Buffers: shared read=73
+                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=16.333..16.335 rows=20001 loops=1)
                                       Buckets: 32768  Batches: 1  Memory Usage: 1311kB
-                                      Buffers: shared hit=1539
-                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.006..8.647 rows=20001 loops=1)
+                                      Buffers: shared hit=1494 read=45
+                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.013..10.911 rows=20001 loops=1)
                                             Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
                                             Rows Removed by Filter: 5
-                                            Buffers: shared hit=1539
-Planning Time: 0.324 ms
-Execution Time: 91.086 ms
+                                            Buffers: shared hit=1494 read=45
+Planning Time: 0.438 ms
+Execution Time: 48.989 ms
 
----- Run 2: execution 76.615 ms, planning 0.221 ms ----
-Limit  (cost=25557.00..25557.25 rows=100 width=68) (actual time=76.513..76.528 rows=100 loops=1)
-  Buffers: shared hit=1922 read=19621
-  ->  Sort  (cost=25557.00..25591.45 rows=13780 width=68) (actual time=76.511..76.519 rows=100 loops=1)
+---- Run 2: execution 46.776 ms, planning 0.413 ms ----
+Limit  (cost=4551.90..4552.15 rows=100 width=68) (actual time=46.593..46.616 rows=100 loops=1)
+  Buffers: shared hit=1625
+  ->  Sort  (cost=4551.90..4586.20 rows=13720 width=68) (actual time=46.590..46.603 rows=100 loops=1)
         Sort Key: (row_number() OVER (?))
         Sort Method: top-N heapsort  Memory: 38kB
-        Buffers: shared hit=1922 read=19621
-        ->  WindowAgg  (cost=24720.28..25030.33 rows=13780 width=68) (actual time=73.694..75.351 rows=8053 loops=1)
-              Buffers: shared hit=1922 read=19621
-              ->  Sort  (cost=24720.28..24754.73 rows=13780 width=60) (actual time=73.686..74.062 rows=8053 loops=1)
+        Buffers: shared hit=1625
+        ->  WindowAgg  (cost=3718.83..4027.53 rows=13720 width=68) (actual time=41.507..44.751 rows=8053 loops=1)
+              Buffers: shared hit=1625
+              ->  Sort  (cost=3718.83..3753.13 rows=13720 width=60) (actual time=41.491..42.445 rows=8053 loops=1)
                     Sort Key: (count(*)) DESC, (lower((p.display_name)::text))
                     Sort Method: quicksort  Memory: 758kB
-                    Buffers: shared hit=1922 read=19621
-                    ->  HashAggregate  (cost=23600.64..23772.89 rows=13780 width=60) (actual time=65.093..67.903 rows=8053 loops=1)
+                    Buffers: shared hit=1625
+                    ->  HashAggregate  (cost=2604.49..2775.99 rows=13720 width=60) (actual time=29.342..33.446 rows=8053 loops=1)
                           Group Key: p.id
                           Batches: 1  Memory Usage: 1425kB
-                          Buffers: shared hit=1922 read=19621
-                          ->  Hash Join  (cost=1988.99..23531.74 rows=13780 width=20) (actual time=8.766..60.610 rows=11335 loops=1)
+                          Buffers: shared hit=1625
+                          ->  Hash Join  (cost=1989.40..2535.89 rows=13720 width=20) (actual time=17.178..24.499 rows=11335 loops=1)
                                 Hash Cond: (CASE m.winner_side WHEN 1 THEN m.player1_profile_id ELSE m.player2_profile_id END = p.id)
-                                Buffers: shared hit=1922 read=19621
-                                ->  Seq Scan on matches m  (cost=0.00..21504.83 rows=13787 width=12) (actual time=0.029..45.345 rows=14012 loops=1)
-                                      Filter: ((winner_side IS NOT NULL) AND ((status)::text = 'finished'::text) AND ((map)::text = 'prestige'::text))
-                                      Rows Removed by Filter: 86038
-                                      Buffers: shared hit=383 read=19621
-                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=8.704..8.705 rows=20001 loops=1)
+                                Buffers: shared hit=1625
+                                ->  Index Only Scan using ix_matches_map_winners on matches m  (cost=0.42..509.15 rows=13727 width=12) (actual time=0.196..2.448 rows=14012 loops=1)
+                                      Index Cond: (map = 'prestige'::text)
+                                      Heap Fetches: 20
+                                      Buffers: shared hit=86
+                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=16.912..16.913 rows=20001 loops=1)
                                       Buckets: 32768  Batches: 1  Memory Usage: 1311kB
                                       Buffers: shared hit=1539
-                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.004..5.666 rows=20001 loops=1)
+                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.013..11.691 rows=20001 loops=1)
                                             Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
                                             Rows Removed by Filter: 5
                                             Buffers: shared hit=1539
-Planning Time: 0.221 ms
-Execution Time: 76.615 ms
+Planning Time: 0.413 ms
+Execution Time: 46.776 ms
 
----- Run 3: execution 104.763 ms, planning 0.319 ms ----
-Limit  (cost=25558.23..25558.48 rows=100 width=68) (actual time=104.600..104.644 rows=100 loops=1)
-  Buffers: shared hit=2124 read=19420
-  ->  Sort  (cost=25558.23..25592.68 rows=13781 width=68) (actual time=104.598..104.632 rows=100 loops=1)
+---- Run 3: execution 37.397 ms, planning 0.316 ms ----
+Limit  (cost=4551.90..4552.15 rows=100 width=68) (actual time=37.264..37.282 rows=100 loops=1)
+  Buffers: shared hit=1625
+  ->  Sort  (cost=4551.90..4586.20 rows=13720 width=68) (actual time=37.262..37.272 rows=100 loops=1)
         Sort Key: (row_number() OVER (?))
         Sort Method: top-N heapsort  Memory: 38kB
-        Buffers: shared hit=2124 read=19420
-        ->  WindowAgg  (cost=24721.46..25031.53 rows=13781 width=68) (actual time=99.798..102.847 rows=8053 loops=1)
-              Buffers: shared hit=2124 read=19420
-              ->  Sort  (cost=24721.46..24755.91 rows=13781 width=60) (actual time=99.784..100.560 rows=8053 loops=1)
+        Buffers: shared hit=1625
+        ->  WindowAgg  (cost=3718.83..4027.53 rows=13720 width=68) (actual time=33.988..36.032 rows=8053 loops=1)
+              Buffers: shared hit=1625
+              ->  Sort  (cost=3718.83..3753.13 rows=13720 width=60) (actual time=33.970..34.534 rows=8053 loops=1)
                     Sort Key: (count(*)) DESC, (lower((p.display_name)::text))
                     Sort Method: quicksort  Memory: 758kB
-                    Buffers: shared hit=2124 read=19420
-                    ->  HashAggregate  (cost=23601.72..23773.98 rows=13781 width=60) (actual time=87.281..91.413 rows=8053 loops=1)
+                    Buffers: shared hit=1625
+                    ->  HashAggregate  (cost=2604.49..2775.99 rows=13720 width=60) (actual time=24.499..27.540 rows=8053 loops=1)
                           Group Key: p.id
                           Batches: 1  Memory Usage: 1425kB
-                          Buffers: shared hit=2124 read=19420
-                          ->  Hash Join  (cost=1988.99..23532.82 rows=13781 width=20) (actual time=11.123..80.829 rows=11335 loops=1)
+                          Buffers: shared hit=1625
+                          ->  Hash Join  (cost=1989.40..2535.89 rows=13720 width=20) (actual time=14.416..19.987 rows=11335 loops=1)
                                 Hash Cond: (CASE m.winner_side WHEN 1 THEN m.player1_profile_id ELSE m.player2_profile_id END = p.id)
-                                Buffers: shared hit=2124 read=19420
-                                ->  Seq Scan on matches m  (cost=0.00..21505.90 rows=13788 width=12) (actual time=0.045..60.206 rows=14012 loops=1)
-                                      Filter: ((winner_side IS NOT NULL) AND ((status)::text = 'finished'::text) AND ((map)::text = 'prestige'::text))
-                                      Rows Removed by Filter: 86038
-                                      Buffers: shared hit=585 read=19420
-                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=11.042..11.065 rows=20001 loops=1)
+                                Buffers: shared hit=1625
+                                ->  Index Only Scan using ix_matches_map_winners on matches m  (cost=0.42..509.15 rows=13727 width=12) (actual time=0.059..1.768 rows=14012 loops=1)
+                                      Index Cond: (map = 'prestige'::text)
+                                      Heap Fetches: 20
+                                      Buffers: shared hit=86
+                                ->  Hash  (cost=1739.05..1739.05 rows=19995 width=20) (actual time=14.301..14.303 rows=20001 loops=1)
                                       Buckets: 32768  Batches: 1  Memory Usage: 1311kB
                                       Buffers: shared hit=1539
-                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.006..6.666 rows=20001 loops=1)
+                                      ->  Seq Scan on profiles p  (cost=0.00..1739.05 rows=19995 width=20) (actual time=0.007..8.923 rows=20001 loops=1)
                                             Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
                                             Rows Removed by Filter: 5
                                             Buffers: shared hit=1539
-Planning Time: 0.319 ms
-Execution Time: 104.763 ms
+Planning Time: 0.316 ms
+Execution Time: 37.397 ms

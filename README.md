@@ -257,10 +257,10 @@ cp_battle/
     01_normalization.md   the data through 1NF, 2NF, 3NF and BCNF, table by table
     02_er_diagram.png     entities, keys, cardinality (drawn from 03 by tools/er_diagram.py)
     03_schema.sql         CREATE TABLE for all 17 tables, with foreign keys and CHECKs
-    04_queries.sql        every query the app runs (76), each marked -- READ or -- WRITE
-    05_query_timings.md   Run 1/2/3 and average for every query on 3.8 M rows, index advice
-    plans/                raw EXPLAIN (ANALYZE, BUFFERS) output per query
-    tools/                problem loader, benchmark data, timing runner, ER diagram, index trial
+    04_queries.sql        every query the app runs (77), each marked -- READ or -- WRITE
+    05_query_timings.md   Run 1/2/3 and average for every query on 3.8 M rows; what the new indexes changed
+    plans/                raw EXPLAIN (ANALYZE, BUFFERS) output per query (before_indexes/: the first run)
+    tools/                problem loader, benchmark data, timing runner, write-cost bench, ER diagram
 ```
 
 ---

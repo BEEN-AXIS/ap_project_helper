@@ -9,35 +9,35 @@ SET status = 'finished', end_time = now() AT TIME ZONE 'utc', elapsed_ms = 10100
     last_seq = 20, player2_hp = 0
 WHERE id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
----- Run 1: execution 0.235 ms, planning 0.025 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.160..0.160 rows=0 loops=1)
-  Buffers: shared hit=21
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.008..0.008 rows=1 loops=1)
+---- Run 1: execution 0.428 ms, planning 0.050 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.286..0.286 rows=0 loops=1)
+  Buffers: shared hit=27 read=1 dirtied=2
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.012..0.013 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=5
-Planning Time: 0.025 ms
-Trigger for constraint matches_player1_profile_id_fkey: time=0.038 calls=1
-Trigger for constraint matches_player2_profile_id_fkey: time=0.027 calls=1
-Execution Time: 0.235 ms
+Planning Time: 0.050 ms
+Trigger for constraint matches_player1_profile_id_fkey: time=0.080 calls=1
+Trigger for constraint matches_player2_profile_id_fkey: time=0.046 calls=1
+Execution Time: 0.428 ms
 
----- Run 2: execution 0.176 ms, planning 0.022 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.116..0.117 rows=0 loops=1)
-  Buffers: shared hit=21
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.007..0.007 rows=1 loops=1)
+---- Run 2: execution 0.306 ms, planning 0.067 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.203..0.203 rows=0 loops=1)
+  Buffers: shared hit=28
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.011..0.012 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=5
-Planning Time: 0.022 ms
-Trigger for constraint matches_player1_profile_id_fkey: time=0.030 calls=1
-Trigger for constraint matches_player2_profile_id_fkey: time=0.020 calls=1
-Execution Time: 0.176 ms
+Planning Time: 0.067 ms
+Trigger for constraint matches_player1_profile_id_fkey: time=0.055 calls=1
+Trigger for constraint matches_player2_profile_id_fkey: time=0.032 calls=1
+Execution Time: 0.306 ms
 
----- Run 3: execution 0.336 ms, planning 0.030 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.262..0.263 rows=0 loops=1)
-  Buffers: shared hit=23 read=1
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.008..0.009 rows=1 loops=1)
+---- Run 3: execution 0.310 ms, planning 0.054 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.192..0.192 rows=0 loops=1)
+  Buffers: shared hit=28
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=244) (actual time=0.013..0.014 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=5
-Planning Time: 0.030 ms
-Trigger for constraint matches_player1_profile_id_fkey: time=0.040 calls=1
-Trigger for constraint matches_player2_profile_id_fkey: time=0.022 calls=1
-Execution Time: 0.336 ms
+Planning Time: 0.054 ms
+Trigger for constraint matches_player1_profile_id_fkey: time=0.071 calls=1
+Trigger for constraint matches_player2_profile_id_fkey: time=0.031 calls=1
+Execution Time: 0.310 ms

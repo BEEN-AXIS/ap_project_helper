@@ -7,47 +7,44 @@ FROM profiles me
 JOIN profiles o ON NOT o.is_bot AND o.user_id IS NOT NULL
 WHERE me.id = 26;
 
----- Run 1: execution 14.385 ms, planning 0.047 ms ----
-Aggregate  (cost=2097.27..2097.28 rows=1 width=16) (actual time=14.366..14.367 rows=1 loops=1)
-  Buffers: shared hit=7 read=1535
-  ->  Nested Loop  (cost=0.29..1947.30 rows=19995 width=8) (actual time=0.008..13.007 rows=20001 loops=1)
-        Buffers: shared hit=7 read=1535
-        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.004..0.007 rows=1 loops=1)
+---- Run 1: execution 6.547 ms, planning 0.142 ms ----
+Aggregate  (cost=1050.43..1050.44 rows=1 width=16) (actual time=6.520..6.521 rows=1 loops=1)
+  Buffers: shared hit=79 read=90
+  ->  Nested Loop  (cost=0.57..900.47 rows=19995 width=8) (actual time=0.042..5.063 rows=20001 loops=1)
+        Buffers: shared hit=79 read=90
+        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.008..0.010 rows=1 loops=1)
               Index Cond: (id = 26)
               Buffers: shared hit=3
-        ->  Seq Scan on profiles o  (cost=0.00..1739.05 rows=19995 width=4) (actual time=0.004..10.846 rows=20001 loops=1)
-              Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
-              Rows Removed by Filter: 5
-              Buffers: shared hit=4 read=1535
-Planning Time: 0.047 ms
-Execution Time: 14.385 ms
+        ->  Index Only Scan using ix_profiles_ladder on profiles o  (cost=0.29..692.21 rows=19995 width=4) (actual time=0.032..2.938 rows=20001 loops=1)
+              Heap Fetches: 84
+              Buffers: shared hit=76 read=90
+Planning Time: 0.142 ms
+Execution Time: 6.547 ms
 
----- Run 2: execution 9.937 ms, planning 0.051 ms ----
-Aggregate  (cost=2097.27..2097.28 rows=1 width=16) (actual time=9.919..9.920 rows=1 loops=1)
-  Buffers: shared hit=1542
-  ->  Nested Loop  (cost=0.29..1947.30 rows=19995 width=8) (actual time=0.010..8.724 rows=20001 loops=1)
-        Buffers: shared hit=1542
-        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.005..0.007 rows=1 loops=1)
+---- Run 2: execution 4.636 ms, planning 0.079 ms ----
+Aggregate  (cost=1050.43..1050.44 rows=1 width=16) (actual time=4.621..4.622 rows=1 loops=1)
+  Buffers: shared hit=229
+  ->  Nested Loop  (cost=0.57..900.47 rows=19995 width=8) (actual time=0.016..3.490 rows=20001 loops=1)
+        Buffers: shared hit=229
+        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.005..0.006 rows=1 loops=1)
               Index Cond: (id = 26)
               Buffers: shared hit=3
-        ->  Seq Scan on profiles o  (cost=0.00..1739.05 rows=19995 width=4) (actual time=0.004..6.846 rows=20001 loops=1)
-              Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
-              Rows Removed by Filter: 5
-              Buffers: shared hit=1539
-Planning Time: 0.051 ms
-Execution Time: 9.937 ms
+        ->  Index Only Scan using ix_profiles_ladder on profiles o  (cost=0.29..692.21 rows=19995 width=4) (actual time=0.009..1.857 rows=20001 loops=1)
+              Heap Fetches: 150
+              Buffers: shared hit=226
+Planning Time: 0.079 ms
+Execution Time: 4.636 ms
 
----- Run 3: execution 12.146 ms, planning 0.063 ms ----
-Aggregate  (cost=2097.27..2097.28 rows=1 width=16) (actual time=12.122..12.124 rows=1 loops=1)
-  Buffers: shared hit=1542
-  ->  Nested Loop  (cost=0.29..1947.30 rows=19995 width=8) (actual time=0.013..10.405 rows=20001 loops=1)
-        Buffers: shared hit=1542
-        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.006..0.009 rows=1 loops=1)
+---- Run 3: execution 4.748 ms, planning 0.078 ms ----
+Aggregate  (cost=1050.43..1050.44 rows=1 width=16) (actual time=4.731..4.733 rows=1 loops=1)
+  Buffers: shared hit=228
+  ->  Nested Loop  (cost=0.57..900.47 rows=19995 width=8) (actual time=0.015..3.596 rows=20001 loops=1)
+        Buffers: shared hit=228
+        ->  Index Scan using profiles_pkey on profiles me  (cost=0.29..8.30 rows=1 width=4) (actual time=0.005..0.006 rows=1 loops=1)
               Index Cond: (id = 26)
               Buffers: shared hit=3
-        ->  Seq Scan on profiles o  (cost=0.00..1739.05 rows=19995 width=4) (actual time=0.006..8.084 rows=20001 loops=1)
-              Filter: ((NOT is_bot) AND (user_id IS NOT NULL))
-              Rows Removed by Filter: 5
-              Buffers: shared hit=1539
-Planning Time: 0.063 ms
-Execution Time: 12.146 ms
+        ->  Index Only Scan using ix_profiles_ladder on profiles o  (cost=0.29..692.21 rows=19995 width=4) (actual time=0.008..1.888 rows=20001 loops=1)
+              Heap Fetches: 150
+              Buffers: shared hit=225
+Planning Time: 0.078 ms
+Execution Time: 4.748 ms

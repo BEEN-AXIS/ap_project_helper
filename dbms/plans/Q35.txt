@@ -13,29 +13,29 @@ SET last_seq = 17,
     player2_stats = '{"damage_taken": 8000}'
 WHERE id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
----- Run 1: execution 0.166 ms, planning 0.018 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.157..0.157 rows=0 loops=1)
-  Buffers: shared hit=18 read=3 dirtied=4
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.005..0.005 rows=1 loops=1)
+---- Run 1: execution 0.289 ms, planning 0.041 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.274..0.274 rows=0 loops=1)
+  Buffers: shared hit=20 read=3 dirtied=5
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.008..0.009 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=4
-Planning Time: 0.018 ms
-Execution Time: 0.166 ms
+Planning Time: 0.041 ms
+Execution Time: 0.289 ms
 
----- Run 2: execution 0.120 ms, planning 0.040 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.112..0.112 rows=0 loops=1)
-  Buffers: shared hit=20
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.005..0.005 rows=1 loops=1)
+---- Run 2: execution 0.198 ms, planning 0.054 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.181..0.181 rows=0 loops=1)
+  Buffers: shared hit=22
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.015..0.016 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=4
-Planning Time: 0.040 ms
-Execution Time: 0.120 ms
+Planning Time: 0.054 ms
+Execution Time: 0.198 ms
 
----- Run 3: execution 0.218 ms, planning 0.024 ms ----
-Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.207..0.207 rows=0 loops=1)
-  Buffers: shared hit=20
-  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.006..0.007 rows=1 loops=1)
+---- Run 3: execution 0.146 ms, planning 0.025 ms ----
+Update on matches  (cost=0.42..8.44 rows=0 width=0) (actual time=0.135..0.136 rows=0 loops=1)
+  Buffers: shared hit=22
+  ->  Index Scan using matches_pkey on matches  (cost=0.42..8.44 rows=1 width=118) (actual time=0.006..0.006 rows=1 loops=1)
         Index Cond: ((id)::text = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'::text)
         Buffers: shared hit=4
-Planning Time: 0.024 ms
-Execution Time: 0.218 ms
+Planning Time: 0.025 ms
+Execution Time: 0.146 ms

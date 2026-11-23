@@ -90,6 +90,12 @@ CREATE TABLE profiles (
     CONSTRAINT ck_profiles_kind    CHECK (is_bot = (user_id IS NULL))   -- people have a login, bots do not
 );
 CREATE INDEX ix_profiles_display_name ON profiles (display_name);
+-- From the timings in 05 (migration 0003_query_indexes). The partial WHERE clauses
+-- repeat the app's own filters, so the planner can prove a query is covered.
+CREATE INDEX ix_profiles_ladder ON profiles (rating DESC, lower(display_name))
+    WHERE is_bot = false AND user_id IS NOT NULL;                -- all-time board in order, rank counts
+CREATE INDEX ix_profiles_display_name_lower ON profiles (lower(display_name));   -- profile page by name
+CREATE INDEX ix_profiles_bot_personality ON profiles (personality) WHERE is_bot = true;   -- pick a bot
 
 -- -----------------------------------------------------------------------------
 -- Problems
@@ -225,6 +231,12 @@ CREATE INDEX ix_matches_mode ON matches (mode);
 CREATE INDEX ix_matches_status ON matches (status);
 CREATE INDEX ix_matches_player1_profile_id ON matches (player1_profile_id);
 CREATE INDEX ix_matches_player2_profile_id ON matches (player2_profile_id);
+CREATE INDEX ix_matches_created_at ON matches (created_at);                      -- admin: latest matches
+CREATE INDEX ix_matches_finished_end_time ON matches (end_time)
+    WHERE status = 'finished';                                   -- weekly board
+CREATE INDEX ix_matches_map_winners ON matches (map)
+    INCLUDE (winner_side, player1_profile_id, player2_profile_id)
+    WHERE status = 'finished' AND winner_side IS NOT NULL;       -- map board, answered from the index alone
 
 -- Every submission a player (or a bot) makes in a match. cmd_id makes a retried
 -- submit idempotent: (profile_id, cmd_id) is unique.

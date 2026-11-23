@@ -7,26 +7,26 @@ FROM profiles
 WHERE id IN (26, 3866)
   AND NOT is_bot;
 
----- Run 1: execution 0.016 ms, planning 0.038 ms ----
-Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.007..0.011 rows=2 loops=1)
+---- Run 1: execution 0.027 ms, planning 0.063 ms ----
+Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.013..0.018 rows=2 loops=1)
   Index Cond: (id = ANY ('{26,3866}'::integer[]))
   Filter: (NOT is_bot)
   Buffers: shared hit=6
-Planning Time: 0.038 ms
-Execution Time: 0.016 ms
+Planning Time: 0.063 ms
+Execution Time: 0.027 ms
 
----- Run 2: execution 0.015 ms, planning 0.028 ms ----
-Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.006..0.010 rows=2 loops=1)
+---- Run 2: execution 0.028 ms, planning 0.067 ms ----
+Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.011..0.017 rows=2 loops=1)
   Index Cond: (id = ANY ('{26,3866}'::integer[]))
   Filter: (NOT is_bot)
   Buffers: shared hit=6
-Planning Time: 0.028 ms
-Execution Time: 0.015 ms
+Planning Time: 0.067 ms
+Execution Time: 0.028 ms
 
----- Run 3: execution 0.023 ms, planning 0.079 ms ----
-Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.010..0.015 rows=2 loops=1)
+---- Run 3: execution 0.024 ms, planning 0.080 ms ----
+Index Scan using profiles_pkey on profiles  (cost=0.29..15.62 rows=2 width=147) (actual time=0.012..0.016 rows=2 loops=1)
   Index Cond: (id = ANY ('{26,3866}'::integer[]))
   Filter: (NOT is_bot)
   Buffers: shared hit=6
-Planning Time: 0.079 ms
-Execution Time: 0.023 ms
+Planning Time: 0.080 ms
+Execution Time: 0.024 ms

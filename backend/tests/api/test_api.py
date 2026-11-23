@@ -174,3 +174,78 @@ def test_two_players_queue_ready_check_and_fight(client: TestClient) -> None:
     events = client.get(f"/api/matches/{mid}/events", headers=H(tb)).json()["events"]
     kinds = [e["type"] for e in events]
     assert "attack.landed" in kinds and "hand.updated" not in kinds and "submission.verdict" not in kinds
+
+
+def _boards_the_old_way(scope: str, map_: str | None) -> list[tuple[int, int]]:
+    """The leaderboard as the app used to build it: every person loaded and ranked
+    in Python. The indexed queries must give the same (profile_id, score) order."""
+    from datetime import timedelta
+
+    from sqlmodel import select
+
+    from app.core.db import session
+    from app.models import Match, Profile, utcnow
+
+    with session() as s:
+        profs = {p.id: p for p in s.exec(select(Profile).where(Profile.is_bot == False, Profile.user_id != None)).all()}  # noqa: E711, E712
+        score: dict[int, int] = {}
+        if scope == "all" and not map_:
+            score = {pid: p.rating for pid, p in profs.items()}  # type: ignore[misc]
+        else:
+            q = select(Match).where(Match.status == "finished")
+            if scope == "week":
+                q = q.where(Match.end_time >= utcnow() - timedelta(days=7))  # type: ignore[operator]
+            if map_:
+                q = q.where(Match.map == map_)
+            for m in s.exec(q).all():
+                if map_:
+                    wid = m.player1_profile_id if m.winner_side == 1 else m.player2_profile_id
+                    if m.winner_side and wid in profs:
+                        score[wid] = score.get(wid, 0) + 1
+                else:
+                    for n, pid in (("1", m.player1_profile_id), ("2", m.player2_profile_id)):
+                        blk = (m.result or {}).get("sides", {}).get(n)
+                        if blk and pid in profs:
+                            score[pid] = score.get(pid, 0) + int(blk.get("delta", 0))
+    ranked = sorted(score.items(), key=lambda kv: (-kv[1], profs[kv[0]].display_name.lower()))
+    return [(pid, sc) for pid, sc in ranked]
+
+
+def test_leaderboards_read_through_indexes_rank_like_before(client: TestClient) -> None:
+    import uuid
+
+    from app.core.db import session
+    from app.models import Match, Profile, User, utcnow
+
+    tok, me = signup(client, f"mid{next(_n)}")
+    # 120 people rated above the default 1200, then ten tied at 1200: seven named before "mid…", three after
+    with session() as s:
+        made = []
+        for i in range(130):
+            name = f"lb{next(_n)}_{i}" if i < 120 else (f"zz{next(_n)}" if i % 4 == 0 else f"aa{next(_n)}")
+            u = User(username=name, username_lower=name.lower(), password_hash="x")
+            s.add(u)
+            s.flush()
+            p = Profile(user_id=u.id, display_name=name, rating=1300 + (i * 7) % 400 if i < 120 else 1200)
+            s.add(p)
+            s.flush()
+            made.append(p.id)
+        for k in range(12):   # finished matches this week, with rating changes and winners on two maps
+            a, b = made[k], made[k + 1]
+            s.add(Match(id=str(uuid.uuid4()), mode="ranked", map="bit" if k % 3 else "prestige", status="finished", seed=k,
+                        end_time=utcnow(), winner_side=1 + k % 2, outcome="win", player1_profile_id=a, player2_profile_id=b,
+                        result={"sides": {"1": {"delta": 10 + k}, "2": {"delta": -8 - k}}}))
+        s.commit()
+
+    client.app.state.ctx.cache.clear()  # type: ignore[attr-defined]
+    for scope, map_ in (("all", None), ("week", None), ("all", "bit"), ("week", "prestige")):
+        params = {"scope": scope, **({"map": map_} if map_ else {})}
+        got = client.get("/api/leaderboard", params=params, headers=H(tok)).json()
+        want = _boards_the_old_way(scope, map_)
+        assert [(r["profile_id"], r["score"]) for r in got["rows"]] == want[:100], (scope, map_)
+        assert [r["rank"] for r in got["rows"]] == list(range(1, len(got["rows"]) + 1))
+        mine = next((i for i, (pid, _) in enumerate(want, 1) if pid == me["id"]), None)
+        assert (got["me"] or {}).get("rank") == mine, (scope, map_)
+    # outside the top 100 on the all-time board, "me" comes from a count, not the list
+    allt = client.get("/api/leaderboard", headers=H(tok)).json()
+    assert allt["me"]["rank"] > 100 and allt["me"]["profile_id"] == me["id"]

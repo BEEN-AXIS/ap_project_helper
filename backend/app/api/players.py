@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
 from app.api.deps import Caller, current
@@ -191,6 +191,61 @@ async def public_profile(username: str, caller: Caller = Depends(current), ctx: 
     return await run_db(work)
 
 
+# People on the boards: profiles with a login (bots and the practice dummy have none).
+_PEOPLE = (Profile.is_bot == False, Profile.user_id != None)  # noqa: E711, E712
+
+
+def _board_row(rank: int, pid: int, name: str, rating: int, score: int, wins: int, losses: int, ctx: AppContext) -> dict:
+    return {"rank": rank, "profile_id": pid, "name": name, "rating": rating, "tier": get_tier(rating, ctx.cfg),
+            "score": score, "wins": wins, "losses": losses}
+
+
+def _board(s: Session, scope: str, map: str | None, ctx: AppContext) -> list[dict]:
+    """The ranked rows of one board. All-time is the top 100, read in order from
+    ix_profiles_ladder; the weekly and map boards add up every finished match."""
+    if scope == "all" and not map:
+        top = s.exec(select(Profile).where(*_PEOPLE)
+                     .order_by(Profile.rating.desc(), func.lower(Profile.display_name)).limit(100)).all()  # type: ignore[attr-defined]
+        return [_board_row(i, p.id or 0, p.display_name, p.rating, p.rating, p.wins, p.losses, ctx)
+                for i, p in enumerate(top, 1)]
+    people = {r[0]: r for r in s.exec(select(Profile.id, Profile.display_name, Profile.rating, Profile.wins,  # type: ignore[call-overload]
+                                                Profile.losses).where(*_PEOPLE)).all()}
+    since = utcnow() - timedelta(days=7) if scope == "week" else None
+    score: dict[int, int] = {}
+    if map:   # wins on the map (ix_matches_map_winners)
+        wins = select(Match.winner_side, Match.player1_profile_id, Match.player2_profile_id).where(
+            Match.status == "finished", Match.map == map, Match.winner_side != None)  # noqa: E711
+        if since:
+            wins = wins.where(Match.end_time >= since)  # type: ignore[operator]
+        for side, p1, p2 in s.exec(wins).all():
+            wid = p1 if side == 1 else p2
+            if wid in people:
+                score[wid] = score.get(wid, 0) + 1
+    else:     # rating gained this week (ix_matches_finished_end_time)
+        gains = select(Match.player1_profile_id, Match.player2_profile_id, Match.result).where(
+            Match.status == "finished", Match.end_time >= since)  # type: ignore[operator]
+        for p1, p2, result in s.exec(gains).all():
+            for n, pid in (("1", p1), ("2", p2)):
+                blk = (result or {}).get("sides", {}).get(n)
+                if blk and pid in people:
+                    score[pid] = score.get(pid, 0) + int(blk.get("delta", 0))
+    ranked = sorted(score.items(), key=lambda kv: (-kv[1], people[kv[0]][1].lower()))
+    return [_board_row(i, pid, people[pid][1], people[pid][2], sc, people[pid][3], people[pid][4], ctx)
+            for i, (pid, sc) in enumerate(ranked, 1)]
+
+
+def _ladder_place(s: Session, profile_id: int, ctx: AppContext) -> dict | None:
+    """A player's own row on the all-time board when they are outside the top 100:
+    their rank is one more than the people ordered ahead of them."""
+    p = s.get(Profile, profile_id)
+    if p is None or p.is_bot or p.user_id is None:
+        return None
+    ahead = s.exec(select(func.count()).select_from(Profile).where(
+        *_PEOPLE, or_(Profile.rating > p.rating,  # type: ignore[arg-type]
+                      and_(Profile.rating == p.rating, func.lower(Profile.display_name) < func.lower(p.display_name))))).one()  # type: ignore[arg-type]
+    return _board_row(int(ahead) + 1, p.id or 0, p.display_name, p.rating, p.rating, p.wins, p.losses, ctx)
+
+
 @router.get("/leaderboard")
 async def leaderboard(scope: Literal["all", "week"] = "all", map: str | None = Query(default=None, max_length=16),
                       caller: Caller = Depends(current), ctx: AppContext = Depends(ctx_dep)) -> dict:
@@ -199,41 +254,11 @@ async def leaderboard(scope: Literal["all", "week"] = "all", map: str | None = Q
     if hit and time.monotonic() - hit[0] < 30:
         rows = hit[1]
     else:
-        def work(s: Session) -> list[dict]:
-            profs = {p.id: p for p in s.exec(select(Profile).where(Profile.is_bot == False, Profile.user_id != None)).all()}  # noqa: E711, E712
-            score: dict[int, int] = {}
-            if scope == "all" and not map:
-                score = {pid: p.rating for pid, p in profs.items()}
-            else:
-                since = utcnow() - timedelta(days=7) if scope == "week" else None
-                q = select(Match).where(Match.status == "finished")
-                if since:
-                    q = q.where(Match.end_time >= since)  # type: ignore[operator]
-                if map:
-                    q = q.where(Match.map == map)
-                for m in s.exec(q).all():
-                    if map:
-                        if m.winner_side:
-                            wid = m.player1_profile_id if m.winner_side == 1 else m.player2_profile_id
-                            if wid in profs:
-                                score[wid] = score.get(wid, 0) + 1
-                    else:
-                        for n in ("1", "2"):
-                            blk = (m.result or {}).get("sides", {}).get(n)
-                            pid = m.player1_profile_id if n == "1" else m.player2_profile_id
-                            if blk and pid in profs:
-                                score[pid] = score.get(pid, 0) + int(blk.get("delta", 0))
-            ranked = sorted(score.items(), key=lambda kv: (-kv[1], profs[kv[0]].display_name.lower()))
-            out = []
-            for i, (pid, sc) in enumerate(ranked, 1):
-                p = profs[pid]
-                out.append({"rank": i, "profile_id": pid, "name": p.display_name, "rating": p.rating,
-                            "tier": get_tier(p.rating, ctx.cfg), "score": sc, "wins": p.wins, "losses": p.losses})
-            return out
-
-        rows = await run_db(work)
+        rows = await run_db(lambda s: _board(s, scope, map, ctx))
         ctx.cache[key] = (time.monotonic(), rows)
     mine = next((r for r in rows if r["profile_id"] == caller.profile_id), None)
+    if mine is None and scope == "all" and not map:
+        mine = await run_db(lambda s: _ladder_place(s, caller.profile_id, ctx))
     return {"scope": scope, "map": map, "rows": rows[:100], "me": mine,
             "metric": "rating" if scope == "all" and not map else ("wins" if map else "rating_gained")}
 
