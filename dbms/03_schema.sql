@@ -2,9 +2,14 @@
 -- AlgoArena (cp_battle): the database schema for PostgreSQL (tested on 16.15)
 --
 -- These are the 17 tables the backend uses (backend/app/models/__init__.py), with
--- the same names, columns, types, unique constraints and indexes the app creates.
--- On top of that this file declares the foreign keys and CHECK constraints that
--- the app's data already obeys but its models leave implicit.
+-- the same table and column names, types, unique constraints and indexes the app creates.
+-- Checked against the schema the app's own Alembic migrations build on
+-- PostgreSQL 16: identical apart from what this file adds, which is
+--   * the foreign keys and CHECK constraints the app's data already obeys but its
+--     models leave implicit (the models declare 7 of the 23 foreign keys),
+--   * column DEFAULTs matching the models' Python-side defaults, and
+--   * readable names for the unique constraints (the app lets PostgreSQL name
+--     them, e.g. uq_test_cases_problem_idx is test_cases_problem_id_idx_key there).
 --
 -- Conventions
 --   * Timestamps are UTC stored WITHOUT time zone (the app writes naive UTC).
@@ -45,7 +50,7 @@ CREATE UNIQUE INDEX ix_users_username_lower ON users (username_lower);   -- the 
 -- reuse of a revoked token revokes the whole family.
 CREATE TABLE refresh_tokens (
     id          SERIAL       PRIMARY KEY,
-    user_id     INTEGER      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    user_id     INTEGER      NOT NULL REFERENCES users (id),
     token_hash  VARCHAR(64)  NOT NULL,
     expires_at  TIMESTAMP    NOT NULL,
     revoked_at  TIMESTAMP,
@@ -137,7 +142,7 @@ CREATE INDEX ix_problems_tier ON problems (tier);
 -- Test cases of a problem, numbered from 0. Samples are shown; the rest stay on the server.
 CREATE TABLE test_cases (
     id             SERIAL   PRIMARY KEY,
-    problem_id     INTEGER  NOT NULL REFERENCES problems (id) ON DELETE CASCADE,
+    problem_id     INTEGER  NOT NULL REFERENCES problems (id),
     idx            INTEGER  NOT NULL,
     input_text     TEXT,
     expected_text  TEXT,
@@ -175,7 +180,7 @@ CREATE TABLE matches (
     last_seq                 INTEGER      NOT NULL DEFAULT 0, -- last match_events.seq written
 
     player1_profile_id       INTEGER      NOT NULL REFERENCES profiles (id),
-    player1_name             VARCHAR(32)  NOT NULL DEFAULT '',
+    player1_name             VARCHAR      NOT NULL DEFAULT '',
     player1_rating           INTEGER      NOT NULL DEFAULT 0,
     player1_tier             INTEGER      NOT NULL DEFAULT 1,
     player1_max_hp           INTEGER      NOT NULL DEFAULT 0,
@@ -195,7 +200,7 @@ CREATE TABLE matches (
     player1_connected        BOOLEAN      NOT NULL DEFAULT FALSE,
 
     player2_profile_id       INTEGER      NOT NULL REFERENCES profiles (id),
-    player2_name             VARCHAR(32)  NOT NULL DEFAULT '',
+    player2_name             VARCHAR      NOT NULL DEFAULT '',
     player2_rating           INTEGER      NOT NULL DEFAULT 0,
     player2_tier             INTEGER      NOT NULL DEFAULT 1,
     player2_max_hp           INTEGER      NOT NULL DEFAULT 0,
@@ -276,7 +281,7 @@ CREATE INDEX ix_submissions_profile_id ON submissions (profile_id);
 -- reconnects and replays. visibility: both | p1 | p2 | spectator.
 CREATE TABLE match_events (
     id          SERIAL       PRIMARY KEY,
-    match_id    VARCHAR(36)  NOT NULL REFERENCES matches (id) ON DELETE CASCADE,
+    match_id    VARCHAR(36)  NOT NULL REFERENCES matches (id),
     seq         INTEGER      NOT NULL,
     t_ms        INTEGER      NOT NULL,
     type        VARCHAR(40)  NOT NULL,
@@ -292,7 +297,7 @@ CREATE INDEX ix_match_events_match_id ON match_events (match_id);
 -- when the card is submitted and when the match ends.
 CREATE TABLE drafts (
     id            SERIAL       PRIMARY KEY,
-    match_id      VARCHAR(36)  NOT NULL REFERENCES matches (id) ON DELETE CASCADE,
+    match_id      VARCHAR(36)  NOT NULL REFERENCES matches (id),
     profile_id    INTEGER      NOT NULL REFERENCES profiles (id),
     slot          INTEGER      NOT NULL,
     language      VARCHAR(16)  NOT NULL,

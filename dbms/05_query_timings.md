@@ -73,8 +73,9 @@ ranked, 30% against bots and 10% practice, a few are drawn or aborted, 50 are be
   by about ±0.1 ms between runs (more for the few writes that touch many rows), and the slow
   queries by ±15%. `EXPLAIN ANALYZE` adds a little overhead of its own to plans that pass many
   rows between steps. The numbers are the database's share only: the app runs these through
-  SQLAlchemy, and the server itself could not be run against PostgreSQL here (no PostgreSQL
-  driver could be installed), so request time adds its own Python and network time on top.
+  SQLAlchemy, so a request adds its own Python and network time on top. (The app itself has
+  also run on this PostgreSQL server: its test suite, the real server through bot and ranked
+  matches, and its 100-match load test; see the README's known gaps.)
 
 ## Results
 
