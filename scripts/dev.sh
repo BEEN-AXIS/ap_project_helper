@@ -6,15 +6,14 @@
 # Written for the bash 3.2 that ships with macOS.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PY="$ROOT/backend/.venv/bin/python"
-[ -x "$PY" ] || { echo "run 'make setup' first" >&2; exit 1; }
+[ -d "$ROOT/server/node_modules" ] || { echo "run 'make setup' first" >&2; exit 1; }
 
-API_PORT="$("$PY" "$ROOT/scripts/ports.py" "${API_PORT:-8000}" API)" || exit 1
-WEB_PORT="$("$PY" "$ROOT/scripts/ports.py" "${WEB_PORT:-5173}" "web app")" || exit 1
+API_PORT="$(node "$ROOT/server/scripts/ports.js" "${API_PORT:-8000}" API)" || exit 1
+WEB_PORT="$(node "$ROOT/server/scripts/ports.js" "${WEB_PORT:-5173}" "web app")" || exit 1
 
 # No job control: everything stays in the terminal's foreground group, so Ctrl-C
 # reaches this script. Background children ignore SIGINT, so the trap stops them
-# (and their children: the uvicorn worker, Vite under npm) by PID.
+# (and their children: the node --watch worker, Vite under npm) by PID.
 API_PID=""
 WEB_PID=""
 kill_tree() {
@@ -37,7 +36,7 @@ trap 'echo; echo "Stopping AlgoArena..."; stop_all; echo "Stopped."; exit 0' INT
 trap stop_all EXIT
 
 # stdin from /dev/null: the servers never read the terminal.
-(cd "$ROOT/backend" && exec "$PY" -m uvicorn app.main:app --host 127.0.0.1 --port "$API_PORT" --reload --reload-dir app --reload-dir ../shared) </dev/null &
+(cd "$ROOT/server" && PORT="$API_PORT" HOST=127.0.0.1 exec node --watch-path=src --watch-path=../shared src/index.js) </dev/null &
 API_PID=$!
 
 printf "Waiting for the API on :%s " "$API_PORT"

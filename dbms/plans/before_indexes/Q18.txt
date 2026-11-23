@@ -1,5 +1,5 @@
 Q18 · READ · Career stats: up to 1000 finished matches (streaks, maps, activity)
-App: services/stats.py:113-115. The app reads whole rows; these are the
+App: services/stats.js:100-104. The app reads whole rows; these are the
 columns the summary uses.
 
 SELECT id, mode, map, created_at, end_reason, outcome, winner_side, elapsed_ms,

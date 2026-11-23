@@ -1,5 +1,5 @@
 Q46 · WRITE · Close the match: outcome, labels, the result screen
-App: engine/actor.py:315 (session.merge after the final command)
+App: engine/actor.js:309 (the match's changed columns after the final command)
 
 UPDATE matches
 SET status = 'finished', end_time = now() AT TIME ZONE 'utc', elapsed_ms = 1010000,

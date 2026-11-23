@@ -1,5 +1,5 @@
 Q03 · READ · Log in: the user and their profile
-App: api/auth.py:104 and :113 (two lookups); here one JOIN.
+App: api/auth.js:77 and :81 (two lookups); here one JOIN.
 
 SELECT u.id AS user_id, u.password_hash, u.role, u.suspended_until,
        p.id AS profile_id, p.display_name, p.rating

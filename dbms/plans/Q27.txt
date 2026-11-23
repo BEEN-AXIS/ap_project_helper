@@ -1,5 +1,5 @@
 Q27 · READ · Load the problem cache: every published problem with its tests
-App: services/problems.py:78 and :80 (one query for the problems, then one
+App: services/problems.js:31 and :34 (one query for the problems, then one
 per problem for its tests, 1 + N round trips); here one LEFT JOIN.
 
 SELECT p.id, p.slug, p.title, p.biome, p.rating, p.tier, p.base_damage, p.base_recoil,

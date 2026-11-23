@@ -1,5 +1,5 @@
 Q19 · READ · Career stats: submissions by language, by verdict, and in total
-App: services/stats.py:119-127 (reads every row and counts in Python);
+App: services/stats.js:108-118 (reads every row and counts in JavaScript);
 here GROUPING SETS return all three counts in one pass.
 
 SELECT language, verdict, count(*) AS n

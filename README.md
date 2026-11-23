@@ -66,12 +66,15 @@ Binary Rain, Circuit Grid, Green Plains, Marble Hall, Deep Space, Volcano, Neon 
 
 ## Quick start
 
-Needs **Python 3.12+** (3.14 on Apple silicon is the reference), **Node 20+** and `make`. For C++ you need a compiler: on a Mac, `xcode-select --install` provides `g++`. Docker is optional (it gives you the real sandboxed judge, with its own compiler).
+The server is **Node.js 20+** with **Express**, **ws** (WebSockets) and **Prisma** on **PostgreSQL**; the web app is React with Vite. You also need `make`, `python3` (Python is one of the two languages players write in, so the judge runs it) and, for C++, a compiler: on a Mac, `xcode-select --install` provides `g++`. Docker is optional (it gives you the real sandboxed judge, with its own compilers).
 
 ```bash
-make setup     # venv + pip install, npm install, .env from .env.example, seed the database
-make dev       # API on :8000 with auto-reload + Vite on :5173
+createdb algoarena   # or any PostgreSQL; put its URL in .env as DATABASE_URL
+make setup           # npm install (server + web), .env from .env.example, prisma migrate deploy, seed
+make dev             # API on :8000 with auto-reload + Vite on :5173
 ```
+
+No PostgreSQL at hand? Set `DATABASE_URL=memory` in `.env`: the server then runs on a throwaway in-memory database that it seeds on start (nothing survives a restart; refused with `ENV=prod`).
 
 Open http://127.0.0.1:5173 and sign in as `alice` / `alice-pass` (also `bob` / `bob-pass`, `admin` / `admin-pass`), or sign up.
 
@@ -95,7 +98,7 @@ make judge-image   # builds algoarena-judge:latest; JUDGE_BACKEND=auto picks it 
 docker compose up --build    # http://localhost:8000
 ```
 
-This builds the judge image, then the API image (which also builds and serves the web app), seeds SQLite on a named volume and starts on port 8000. The API mounts the Docker socket to start judge containers; read the [security note](#security-note) first.
+This starts PostgreSQL 16 on a named volume, builds the judge image, then the API image (which also builds and serves the web app), applies the Prisma migration, seeds and starts on port 8000. The API mounts the Docker socket to start judge containers; read the [security note](#security-note) first.
 
 ### Other useful targets
 
@@ -103,14 +106,15 @@ This builds the judge image, then the API image (which also builds and serves th
 
 | Target | What it does |
 |---|---|
-| `make demo` | Builds the web app and serves everything on :8000 (or the next free port) with the fake judge and fast bots |
-| `make test` | pytest + Vitest + the stale-types check |
+| `make demo` | Builds the web app and serves everything on :8000 (or the next free port) with the fake judge, fast bots and an in-memory database |
+| `make test` | The server's node:test suites + Vitest + the stale-types check |
 | `make e2e` | Playwright: two browser contexts play a ranked match |
 | `make seed-check` | Runs every reference solution (Python and C++) through the judge |
 | `make load` | 50 simultaneous bot-vs-bot matches in one process |
-| `make types` | Regenerates `frontend/src/net/protocol.generated.ts` from the Pydantic models |
-| `make lint` | Ruff, mypy (strict on `domain/`), ESLint, tsc |
-| `make migration m="..."` | New Alembic migration from model changes |
+| `make types` | Regenerates `frontend/src/net/protocol.generated.ts` from `server/src/realtime/protocol.js` |
+| `make lint` | `node --check` over the server, ESLint and tsc over the web app |
+| `make migrate` | `prisma migrate deploy` against `DATABASE_URL` |
+| `make migration m=...` | New Prisma migration from schema changes (`prisma migrate dev`) |
 
 ---
 
@@ -118,7 +122,7 @@ This builds the judge image, then the API image (which also builds and serves th
 
 The fake judge reads the verdict from a comment in your code, so you can play a full match without writing solutions.
 
-1. `make setup`, then `make demo` (this is `ENV=test`, `JUDGE_BACKEND=fake`, `BOT_TIME_SCALE=0.02`). Open http://127.0.0.1:8000.
+1. `make setup`, then `make demo` (this is `ENV=test`, `JUDGE_BACKEND=fake`, `BOT_TIME_SCALE=0.02`, `DATABASE_URL=memory`; no PostgreSQL needed). Open http://127.0.0.1:8000.
 2. In one browser profile sign in as **alice**; in a second profile (or a private window) sign in as **bob**.
 3. Both: **Ranked 1v1 → Queue**. Both click **Accept** on the ready check.
 4. Alice clicks a card. In the editor, put this at the top and hold **Submit** (or press Ctrl/Cmd+Shift+Enter twice):
@@ -166,11 +170,11 @@ flowchart LR
     UI --> Store --> VFX
   end
 
-  subgraph API["FastAPI process (one process owns all live matches)"]
-    REST[REST /api/*]
+  subgraph API["Node.js process: Express + ws (one process owns all live matches)"]
+    REST[REST /api/*<br/>Express routers]
     WS[WebSockets<br/>/ws/lobby, /ws/match/:id]
     MM[Matchmaker<br/>widening rating window]
-    Actor[MatchActor per match<br/>asyncio command queue]
+    Actor[MatchActor per match<br/>async command queue]
     Pool[JudgePool<br/>priority queue, bounded]
     Hub[Hub<br/>rooms + connections]
   end
@@ -182,14 +186,14 @@ flowchart LR
     Fake[FakeRunner<br/>ENV=test only]
   end
 
-  DB[(SQLite WAL / Postgres<br/>match_events log)]
+  DB[(PostgreSQL via Prisma<br/>match_events log)]
 
   UI -- REST + bearer JWT --> REST
   Store <-- events with seq --> WS
   REST --> Actor
   WS --> Actor
   MM --> Actor
-  Actor -- "1. persist (run_db)" --> DB
+  Actor -- "1. persist (one Prisma transaction)" --> DB
   Actor -- "2. broadcast" --> Hub --> WS
   Actor -- job --> Pool --> Docker & Sub & J0 & Fake
   Pool -- verdict command --> Actor
@@ -218,22 +222,30 @@ cp_battle/
     golden/               test vectors: damage, rating, hands, outcomes, checkers, reducer
     skins/                37 manifests (card.*, weapon.*, bean.*, arena.*), drawn procedurally
     skin-recipes.json     the particle/impact recipes a manifest may name
-  backend/
-    app/
-      domain/             pure rules: tiers, damage, hand, rating, outcome, powerups, progress (no I/O)
-      core/               config, db (run_db, WAL), security (Argon2id, JWT), clock, rate limit, errors, logging
-      models/             SQLModel tables
-      engine/             actor.py (MatchActor), matchmaker, bots, finish (rating + rewards), service
-      realtime/           hub, WebSocket endpoints, protocol (Pydantic event models)
-      api/                auth, players/profiles/problems/leaderboard/quests, matches, skins, admin
-      judge/              runner protocol, docker/subprocess/judge0/fake runners, pool, checkers,
-                          harness/ (run_tests.py, limit_exec.py), Dockerfile.judge
+  server/                 Node.js (ESM, plain JavaScript): Express, ws, Prisma
+    package.json          npm start | test | run seed | run types | run load-test …
+    prisma/               schema.prisma (17 models) and migrations/ (the full schema, partial and expression indexes included)
+    src/
+      index.js app.js     entry point; Express app, middleware, start-up and shutdown
+      domain/             pure rules: gameconfig (schema + validation), rules (tiers, damage, rating, outcome,
+                          power-ups), hand (the dealer), progress (Arena Points, quests, achievements); no I/O
+      pyrandom.js         a Mersenne Twister identical to Python's random, so decks, quests and tests stay as they were
+      config.js db.js     settings and .env; the Prisma client (or DATABASE_URL=memory)
+      db/                 sql.js (the raw queries that use the expression indexes), memory.js (in-memory Prisma stand-in)
+      security.js         scrypt password hashes, JWT, refresh tokens, WebSocket tickets
+      engine/             actor.js (MatchActor), matchmaker, bots, finish (rating + rewards), service
+      realtime/           hub, WebSocket endpoints (ws.js), protocol.js (event models, validator, TS generator input)
+      api/                auth, players (profiles, problems, leaderboard, quests), matches, skins, admin
+      judge/              runners (docker, subprocess, judge0, fake), pool, checkers, driver,
+                          harness/ (harness.js, include/bits/stdc++.h, Dockerfile.judge)
       skins/              manifest registry + validation, unlocks, shop
       services/           judging glue, problem cache, profiles, stats (career numbers for home and profiles)
-      seed.py  seed_check.py
-    seed/                 catalog.py, gen_tests.py, solutions/, brute/, problems/*.json (17 problems)
-    alembic/              migrations (0001_initial is the full schema)
-    tests/                domain/ engine/ api/ judge/ judge_escape/ + migration check
+      seed.js             problems, demo users and bots
+    seed/                 catalog.js, solutions/ and solutions_cpp/ (reference answers), brute/, problems/*.json (17)
+    scripts/              seed, seed-check, gen-tests, gen-golden, gen-reducer-golden, make-types, migration-sql,
+                          load-test, ports
+    test/                 rules, engine, protocol, API (real HTTP + WebSockets), stats, migrations; judge/ (real
+                          python3 and g++, escape suite); standins/ (an Express-compatible router, see Known gaps)
   frontend/
     src/
       app/                router (lazy pages), settings modal
@@ -251,11 +263,11 @@ cp_battle/
     tests/                reducer (golden match), director timings, weapons (all 32 forms), misfires (all 32),
                           music (form, ranges, intensity, determinism), skin validator
   e2e/                    Playwright config + specs (two browser contexts)
-  scripts/                load_test.py, make_types.py, dev.sh, ports.py, e2e_server.sh
+  scripts/                dev.sh, e2e_server.sh
   docs/PLAN.md            architecture, phases and gates, risks, decisions
   dbms/                   the database write-up, all on PostgreSQL 16:
     01_normalization.md   the data through 1NF, 2NF, 3NF and BCNF, table by table
-    02_er_diagram.png     entities, keys, cardinality (drawn from 03 by tools/er_diagram.py)
+    02_er_diagram.png     entities, keys, cardinality (drawn from 03 by tools/er_diagram.js)
     03_schema.sql         CREATE TABLE for all 17 tables, with foreign keys and CHECKs
     04_queries.sql        every query the app runs (77), each marked -- READ or -- WRITE
     05_query_timings.md   Run 1/2/3 and average for every query on 3.8 M rows; what the new indexes changed
@@ -269,19 +281,20 @@ cp_battle/
 
 | Layer | Command | What it proves |
 |---|---|---|
-| Domain | `make test-backend` | All 25 attacker × problem tier pairs match the damage grid; the seven golden rating cases; hands, outcomes, checkers; property tests with Hypothesis when installed; `domain/` imports nothing impure (AST check) |
+| Domain | `make test-server` | All 25 attacker × problem tier pairs match the damage grid; the seven golden rating cases; hands, outcomes, quests, achievements, config validation; `node scripts/gen-golden.js --check` recomputes every golden vector (4,800 rating cases, 50 damage pairs, 36 hands) and finds them identical |
 | Engine | 〃 | Hit, backfire, block window, hints, rerolls, KO, timer, forfeit, disconnect and abort endings; persist-then-broadcast; idempotent `cmd_id`; reconnect with `last_seq`; in-flight submissions voided at match end |
 | API | 〃 | Auth (refresh rotation and reuse detection, WS tickets), the error envelope and its codes, rate limits (429), hidden tests never leave the server, no endpoint accepts a rating/HP/result; career stats (streaks from your side, maps, the 12-week window, totals) and the profile payload |
-| Judge | 〃 | Every verdict type, checkers, pool priorities and timeouts, and the sandbox escape suite (infinite loops, huge allocations, a gigabyte of output, fork bombs, network, host files, writes outside the job, concurrent jobs, stray processes). Network, host-file and outside-write cases are expected failures for the dev runner; Docker must pass them |
-| Migration | 〃 | `alembic/versions/0001_initial.py` builds exactly the schema the models declare |
+| Judge | `make test-judge` | Every verdict type through real `python3` and `g++`, checkers, pool priorities and timeouts, and the sandbox escape suite (infinite loops, huge allocations, a gigabyte of output, fork bombs, network, host files, writes outside the job, concurrent jobs, stray processes). Network, host-file and outside-write cases are expected failures for the dev runner; Docker must pass them |
+| Protocol | 〃 | Every message of a scripted match validates against `protocol.js`, and the committed TypeScript types are exactly what it generates; `node scripts/gen-reducer-golden.js --check` records a match again and matches `shared/golden/reducer.json` |
+| Migration | 〃 | The committed migration is what `schema.prisma` generates; with `PG_TEST_URL` set it is applied to a fresh PostgreSQL database, builds 17 tables and every index, and the raw queries run and use their expression indexes |
 | Web | `make test-frontend` | The reducer reproduces server state at 11 checkpoints of a recorded match; director timings match the brief's tables; all 32 weapon forms land their main hit exactly on the impact step and throw nothing; all 32 misfires turn round and hit their owner exactly when the recoil is applied; every arena has its own track, and every bar of every track is deterministic, in range and shaped by intensity; skin manifests validate |
 | Types and lint | `make typecheck`, `make lint` | Strict TypeScript and ESLint over the whole web app |
 | End to end | `make e2e` | Two browsers: queue, ready check, difficulty labels on every card, a hit, a block, a backfire, a KO, both result screens, VFX steps fired, zero console errors; equipping a weapon and previewing its four forms; a C++ card that opens with your saved template; full screen on and off; the home page, a profile, map music previews, an arena's track in the Locker and a misfire preview; double submit creates one submission |
-| C++ | `make test-backend` | Through the real compiler: accepted, wrong answer, compile errors (the compiler's message, temp paths removed), crashes, time and memory limits, output limit, a million-deep recursion, custom input, a missing compiler, the sandbox tripwire |
-| Content | `make seed-check` | Every reference solution, Python and C++, passes its tests within half the time limit; brute-force solutions TLE on the large tests |
+| C++ | `make test-judge` | Through the real compiler: accepted, wrong answer, compile errors (the compiler's message, temp paths removed), crashes, time and memory limits, output limit, a million-deep recursion, custom input, a missing compiler, the sandbox tripwire |
+| Content | `make seed-check` | Every reference solution, Python and C++, passes its tests within half the time limit; brute-force solutions TLE on the large tests; `node scripts/gen-tests.js --check` regenerates all 17 problems' tests byte for byte |
 | Load | `make load` | 50 concurrent bot-vs-bot matches finish without errors |
 
-Last run: **238 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfailed** (documented limits of the dev subprocess runner); 101 web unit tests passed; every track rendered offline peaks between −3 and −8 dBFS (no clipping); the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
+Last server run (after the move to Node.js): **109 passed, 11 skipped** (Docker-only), **4 todo** (documented limits of the dev subprocess runner); seed-check green for all 17 problems in both languages; load test 50/50 matches ended by KO. Before the move: 101 web unit tests passed; every track rendered offline peaks between −3 and −8 dBFS (no clipping); the two-browser match passed with no console errors; load test 50/50 matches ended by KO. `tsc --noEmit` and ESLint report no problems when run against the packages `npm install` resolved on macOS (see the lockfile).
 
 ---
 
@@ -289,9 +302,9 @@ Last run: **238 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfa
 
 ### A problem
 
-1. Add an entry to `backend/seed/catalog.py`: slug, title, biome (`bit`, `binary` or `general`), rating (the tier comes from the same thresholds as players: <1200 T1, <1400 T2, <1600 T3, <1900 T4, else T5), statement/input/output/constraints in Markdown with `$…$` maths, three hints in order, a stub, time and memory limits, and a checker (`exact`, `tokens`, `float`, `unordered_lines` or `custom`).
-2. Write the reference solution at `backend/seed/solutions/<slug>.py` (and optionally a brute force at `backend/seed/brute/<slug>.py` that must TLE on the large tests).
-3. Add a test generator function in `backend/seed/gen_tests.py` (fixed random seeds; keep outputs under the 64 KB output limit) and run `python seed/gen_tests.py <slug>` from `backend/`. Expected outputs come from your reference solution.
+1. Add an entry to `server/seed/catalog.js`: slug, title, biome (`bit`, `binary` or `general`), rating (the tier comes from the same thresholds as players: <1200 T1, <1400 T2, <1600 T3, <1900 T4, else T5), statement/input/output/constraints in Markdown with `$…$` maths, three hints in order, a stub, time and memory limits, and a checker (`exact`, `tokens`, `float`, `unordered_lines` or `custom`).
+2. Write the reference solution at `server/seed/solutions/<slug>.py` (problems' answers are in Python, the default submission language; optionally a brute force at `server/seed/brute/<slug>.py` that must TLE on the large tests, and a C++ answer in `server/seed/solutions_cpp/<slug>.cpp`).
+3. Add a test generator function in `server/scripts/gen-tests.js` (fixed random seeds; keep outputs under the 64 KB output limit) and run `node scripts/gen-tests.js <slug>` from `server/`. Expected outputs come from your reference solution.
 4. `make seed && make seed-check`. The problem joins the deck for its tier and biome; each tier needs at least `hand.min_deck_per_tier` problems per biome.
 
 ### A skin
@@ -317,12 +330,12 @@ Last run: **238 passed, 12 skipped** (Docker-only and Hypothesis tests), **4 xfa
 C++ is the worked example of a compiled language.
 
 1. Add an entry to `languages` in `shared/game-config.json`: `id`, `name`, `monaco` (editor mode), `file` (source file name), `run` (argv; `{src}` is the source file), `time_multiplier` (limits are set for C++), `comment` (line-comment marker) and `judge0_id`. A compiled language also gets `compile` (argv; `{include}` is the harness's include folder). The harness compiles once per job under its own limits (`judge.compile_time_s`, `judge.compile_memory_mb`); a failure is a Compile Error showing the compiler's output.
-2. Install the toolchain in `backend/app/judge/Dockerfile.judge`, and on your machine for the dev runner. The language list (`/api/config`) marks a language unavailable when the dev runner cannot find its compiler, and the server refuses it with a message saying what to install.
-3. Optionally add a built-in starting template in `frontend/src/lib/templates.ts`, a `stubs.<id>` in problems, Monaco's syntax module in `MonacoEditor.tsx`, and reference solutions in `backend/seed/solutions_<id>/` for `make seed-check`.
+2. Install the toolchain in `server/src/judge/harness/Dockerfile.judge`, and on your machine for the dev runner. The language list (`/api/config`) marks a language unavailable when the dev runner cannot find its compiler, and the server refuses it with a message saying what to install.
+3. Optionally add a built-in starting template in `frontend/src/lib/templates.ts`, a `stubs.<id>` in problems, Monaco's syntax module in `MonacoEditor.tsx`, and reference solutions in `server/seed/solutions_<id>/` for `make seed-check`.
 
 ### A bot personality
 
-Add an entry under `bots.personalities` in `shared/game-config.json` (`slot_weights` for which card it favours, `prefer_on_level`, `time_scale`, `skill_offset`, `block_below_pct`) and a display name in `bots.names`, then `make seed` to create its profile. `app/engine/bots.py` reads only the config.
+Add an entry under `bots.personalities` in `shared/game-config.json` (`slot_weights` for which card it favours, `prefer_on_level`, `time_scale`, `skill_offset`, `block_below_pct`) and a display name in `bots.names`, then `make seed` to create its profile. `server/src/engine/bots.js` reads only the config.
 
 ---
 
@@ -332,8 +345,9 @@ Add an entry under `bots.personalities` in `shared/game-config.json` (`slot_weig
 
 | Key | Default | Meaning |
 |---|---|---|
-| `ENV` | `dev` | `dev`, `test` or `prod`. `test` enables the FakeRunner. `prod` refuses the default JWT secret, the subprocess runner and the FakeRunner, sets secure cookies and skips demo users in `app.seed` |
-| `DATABASE_URL` | `sqlite:///backend/algoarena.db` | SQLite (WAL, busy timeout 5 s) or `postgresql+psycopg://…` |
+| `ENV` | `dev` | `dev`, `test` or `prod`. `test` enables the FakeRunner. `prod` refuses the default JWT secret, the subprocess runner and the FakeRunner, sets secure cookies and skips demo users in `scripts/seed.js` |
+| `DATABASE_URL` | — | PostgreSQL for Prisma, `postgresql://user:pass@host:5432/algoarena`; or `memory` for a throwaway in-memory database (demo, e2e) |
+| `PORT`, `HOST` | `8000`, `127.0.0.1` | Where the server listens |
 | `JWT_SECRET` | dev placeholder | Signs access tokens; must be changed for prod |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated origins for the Vite dev server |
 | `JUDGE_BACKEND` | `auto` | `auto` (Docker if the daemon and image exist, else DEV SANDBOX), `docker`, `subprocess`, `judge0`, `fake` |
@@ -382,9 +396,9 @@ The client gets everything except `bots`, `rate_limits` and the private judge li
 
 - **DockerRunner (default when available)** runs each job in a fresh container: `--network none`, read-only root, a 64 MB `/tmp` tmpfs, `--cap-drop ALL`, `no-new-privileges`, a pids limit, memory and CPU caps, uid 65534, no volume mounts. The source and test inputs go in on stdin; expected outputs never enter the container and checking happens on the host.
 - **The Docker socket warning.** Whatever can talk to the Docker socket is effectively root on the host. In `docker compose` the API container mounts it to start judge containers, so a compromise of the API is a compromise of the host. On a shared or public server, prefer a dedicated judge host, a rootless/remote Docker daemon, or `JUDGE_BACKEND=judge0`.
-- **SubprocessRunner is for development only.** It runs code as your user, with rlimits (CPU, file size, open files, processes), `psutil` memory polling (macOS ignores `RLIMIT_AS`), a stripped environment, a temp working directory and process-group kill on timeout. It cannot stop file reads or network access. The checks that reject Python imports such as `subprocess` and `socket`, and C++ calls such as `system`, `fork` and `popen`, are a tripwire, **not security**. The C++ compiler runs under its own CPU, memory and file-size limits. The UI shows a DEV SANDBOX badge, and `ENV=prod` refuses this runner.
+- **SubprocessRunner is for development only.** It runs code as your user, with limits set by the shell's `ulimit` just before the program starts (CPU, file size, open files, processes, address space on Linux), resident-memory polling (macOS ignores the address-space limit), a stripped environment, a temp working directory and process-group kill on timeout. It cannot stop file reads or network access. The checks that reject Python imports such as `subprocess` and `socket`, and C++ calls such as `system`, `fork` and `popen`, are a tripwire, **not security**. The C++ compiler runs under its own CPU, memory and file-size limits. The UI shows a DEV SANDBOX badge, and `ENV=prod` refuses this runner.
 - **FakeRunner** exists only when `ENV=test` and refuses to load otherwise.
-- Auth: Argon2id password hashes, 15-minute JWT access tokens, rotating refresh tokens in an httpOnly cookie with reuse detection, single-use 30-second WebSocket tickets, per-route rate limits, a 256 KB body limit, a strict CSP, and one error envelope (`{"error": {"code", "message", "details"}}`).
+- Auth: scrypt password hashes (Node's built-in `crypto.scrypt`, N=2^15), 15-minute JWT access tokens, rotating refresh tokens in an httpOnly cookie with reuse detection, single-use 30-second WebSocket tickets, per-route rate limits, a 256 KB body limit, a strict CSP, and one error envelope (`{"error": {"code", "message", "details"}}`).
 - Fair play: pastes and tab switches are logged and shown to players as a notice; they are signals for review, not proof.
 
 ---
@@ -404,27 +418,28 @@ Labelled in code, here and in the UI:
 
 Written honestly, from most to least important:
 
-1. **Vite, Vitest and the Playwright test runner still need a run on macOS.** `tsc --noEmit` (TypeScript 5.9.3) and ESLint 9 have run against the installed packages and report nothing. The three bundler-based tools load macOS-only native binaries, so they could not run in the build sandbox. Their jobs were covered there by equivalents: the app was bundled with esbuild and Tailwind's compiler, the unit tests ran under a small Vitest-compatible runner, and the end-to-end flows ran with the Playwright library in Chromium. To confirm on your Mac: `make test-frontend build e2e`.
-2. **Docker was not available here.** DockerRunner, `Dockerfile.judge`, the API `Dockerfile` and `docker compose up` are written to the brief but untested; the 11 Docker tests skip without a daemon. The subprocess runner and the full escape suite were tested.
-3. **PostgreSQL ran through a stand-in driver, not psycopg.** The build sandbox could not install packages, so the backend was run on PostgreSQL 16 through a small DB-API driver on the system's libpq (the C library psycopg itself wraps) plugged into SQLAlchemy's pg8000 dialect. On it the full backend test suite passed; the real server ran its Alembic migrations (0001 to 0003, with Alembic 1.20), seeded, and played bot and ranked matches with real judging, drafts, quests, leaderboards, admin void, and a crash restart that aborted the live match; and the 100-match load test finished with no errors. `psycopg[binary]` itself is untested: `pip install "psycopg[binary]"` and `DATABASE_URL=postgresql+psycopg://…` should behave the same. Alembic upgrades and downgrades were also run for real on SQLite; the test suite checks the migrations with a stand-in for `alembic.op`, and the server adopts an existing pre-migration SQLite file by stamping it.
-4. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
-5. **The music was checked by measurement, not by ear.** Every track was rendered offline in Chromium and measured (levels, no clipping, the arrangement visible in a spectrogram), but nobody has listened to it here. Instruments and tracks are plain data in `audio/tracks.ts` and `audio/music.ts` if a sound needs tuning.
-6. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).
-7. **No Codeforces API.** Codeforces does not publish hidden tests, so the server cannot judge its problems itself. The game ships 17 original problems in Codeforces style (bit manipulation, binary search, general), each with a reference solution, a brute force and generated tests.
-8. **Problem bounds were reduced** where the expected output would exceed the 64 KB output limit (for example Subset Parade n ≤ 11, Gray Ladder n ≤ 12).
-9. **Judge0Runner** is implemented against the Judge0 CE API but was not run against a live Judge0.
-10. **No accessibility audit with axe** and no measured frame rate on a reference laptop; reduced motion, keyboard shortcuts, a live region for the battle log and contrast checks on skins are in place.
-11. **Scaling:** one process owns all live matches (see Architecture).
+1. **The real Prisma client has not run against PostgreSQL yet.** The build sandbox had no access to the npm registry. Express 5.3.0 and ws were tested for real (Express copied from the `node_modules` an `npm install` had left on the Mac), and the full API suite, real HTTP and WebSockets included, passes on them. Prisma's query engine in that copy is the macOS binary, so the tests ran on the in-memory Prisma stand-in instead (`server/src/db/memory.js`, which reads `schema.prisma` and enforces its fields, defaults, unique keys and foreign keys). The Prisma migration itself was applied to a real PostgreSQL 16 and checked, and the raw queries ran on it. To confirm the rest on your Mac: `cd server && npm install && npx prisma generate`, then `make migrate seed` and `make dev`. (`server/test/standins/express` is a small Express-compatible router kept for machines without the registry.)
+2. **No data carries over from the Python server.** The new schema is the same, but passwords are hashed with scrypt instead of Argon2id, so old accounts would need a reset; the old default was a local SQLite file anyway. Start from `make setup`.
+3. **Vite, Vitest and the Playwright test runner still need a run on macOS.** `tsc --noEmit` (TypeScript 5.9.3) and ESLint 9 have run against the installed packages and report nothing. The three bundler-based tools load macOS-only native binaries, so they could not run in the build sandbox. Their jobs were covered there by equivalents: the app was bundled with esbuild and Tailwind's compiler, the unit tests ran under a small Vitest-compatible runner, and the end-to-end flows ran with the Playwright library in Chromium. To confirm on your Mac: `make test-frontend build e2e`.
+4. **Docker was not available here.** DockerRunner, `Dockerfile.judge` (now `node:22-slim` with python3 and g++), the API `Dockerfile` and `docker compose up` are written but untested; the 11 Docker tests skip without a daemon. The subprocess runner and the full escape suite were tested.
+5. **Feature flags that are off are not built:** spectating, private rooms, the tutorial, calibration matches, ghost/boss modes, seasons and team battles. The lobby shows Team as "soon".
+6. **The music was checked by measurement, not by ear.** Every track was rendered offline in Chromium and measured (levels, no clipping, the arrangement visible in a spectrogram), but nobody has listened to it here. Instruments and tracks are plain data in `audio/tracks.ts` and `audio/music.ts` if a sound needs tuning.
+7. **Two languages (Python 3 and C++17).** Others follow [adding a language](#a-language). The C++ standard library on macOS (libc++) differs slightly from GCC's; the judge's `bits/stdc++.h` covers both, and GCC-only extensions such as `__gnu_pbds` need GCC (the Docker judge, or a real GCC from Homebrew on a Mac).
+8. **No Codeforces API.** Codeforces does not publish hidden tests, so the server cannot judge its problems itself. The game ships 17 original problems in Codeforces style (bit manipulation, binary search, general), each with a reference solution, a brute force and generated tests.
+9. **Problem bounds were reduced** where the expected output would exceed the 64 KB output limit (for example Subset Parade n ≤ 11, Gray Ladder n ≤ 12).
+10. **Judge0Runner** is implemented against the Judge0 CE API but was not run against a live Judge0.
+11. **No accessibility audit with axe** and no measured frame rate on a reference laptop; reduced motion, keyboard shortcuts, a live region for the battle log and contrast checks on skins are in place.
+12. **Scaling:** one process owns all live matches (see Architecture).
 
 ---
 
 ## Deviations from the brief
 
-- Models live in one module (`app/models/__init__.py`) instead of one file per table; the REST routers are grouped into five files (`auth`, `players`, `matches`, `skins`, `admin`) instead of eleven.
-- The WebSocket endpoints share `realtime/ws.py`; the dealer lives in `domain/hand.py`; achievements and quests live in `domain/progress.py` and `engine/finish.py`.
-- Async tests use AnyIO's pytest plugin instead of pytest-asyncio.
-- `make types` is a Python script (`scripts/make_types.py`) rather than a shell script.
-- The old half-built `fastapi-backend` (one `Player`/`Problem`/`Match` model set, damage and tier helpers, and code run through a temp file and `subprocess` inside the request) was used as the starting idea: its tiers, HP values and damage formula carried over into `shared/game-config.json` and `app/domain/`, while judging moved out of the request into the pool and runners.
+- The server was first built in Python (FastAPI, SQLModel, Alembic) and then moved to Node.js, Express, ws and Prisma on PostgreSQL in plain JavaScript, matching the project plan. The REST routes, JSON shapes and WebSocket protocol did not change, so the web app is untouched; golden vectors, a re-recorded match and byte-identical regenerated tests show the rules behave as before.
+- All 17 models live in one `schema.prisma`; the REST routers are grouped into five files (`auth`, `players`, `matches`, `skins`, `admin`) instead of eleven.
+- The WebSocket endpoints share `realtime/ws.js`; the dealer lives in `domain/hand.js`; achievements and quests live in `domain/progress.js` and `engine/finish.js`.
+- Tests use Node's built-in `node:test` runner; `make types` is a Node script (`server/scripts/make-types.js`).
+- The old half-built `fastapi-backend` (one `Player`/`Problem`/`Match` model set, damage and tier helpers, and code run through a temp file and `subprocess` inside the request) was used as the starting idea: its tiers, HP values and damage formula carried over into `shared/game-config.json` and `server/src/domain/`, while judging moved out of the request into the pool and runners.
 
 ---
 
@@ -432,6 +447,6 @@ Written honestly, from most to least important:
 
 1. `make test && make e2e && make seed-check && make load`
 2. `make lint && make types-check`
-3. `make audit` (pip-audit and `npm audit`)
+3. `make audit` (`npm audit` for the server and the web app)
 4. Set `ENV=prod`, a real `JWT_SECRET`, `CORS_ORIGINS`, and a judge (`docker` with `make judge-image`, or `judge0`)
-5. Keep `frontend/package-lock.json` committed; pin the venv with `pip freeze > backend/requirements.lock` if you want exact Python versions too
+5. Commit `server/package-lock.json` after the first `npm install`, and keep `frontend/package-lock.json` committed

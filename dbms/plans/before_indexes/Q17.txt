@@ -1,5 +1,5 @@
 Q17 · READ · Profile page: accuracy (accepted out of judged)
-App: api/players.py:181 and :182 (two COUNTs); here one scan with FILTER.
+App: api/players.js:174 and :175 (two COUNTs); here one scan with FILTER.
 
 SELECT count(*) FILTER (WHERE verdict = 'AC')  AS accepted,
        count(*) FILTER (WHERE status = 'done') AS judged

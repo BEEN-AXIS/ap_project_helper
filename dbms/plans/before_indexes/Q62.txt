@@ -1,5 +1,5 @@
 Q62 · READ · Admin: a match's full event log, private events included
-App: api/admin.py:58
+App: api/admin.js:52
 
 SELECT seq, t_ms, type, visibility, payload
 FROM match_events

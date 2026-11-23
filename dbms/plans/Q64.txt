@@ -1,5 +1,5 @@
 Q64 · WRITE · Admin: write the audit log
-App: api/admin.py:24 (_audit, after every admin action)
+App: api/admin.js:13 (audit, after every admin action)
 
 INSERT INTO audit_log (actor_id, action, target, details)
 VALUES (1, 'void_match', '9348a163-6e39-4f78-8557-09984d57dc04', '{"reason": "shared account", "rows": 2}');

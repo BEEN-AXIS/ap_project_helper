@@ -1,5 +1,5 @@
 Q10 · READ · Home: my last 8 finished or aborted matches
-App: api/players.py:62-64 (GET /me)
+App: api/players.js:107 (GET /me)
 
 SELECT id, mode, map, status, created_at, end_reason, labels, result,
        player1_profile_id, player1_name, player1_tier, player1_is_bot,

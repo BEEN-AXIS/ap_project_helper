@@ -1,5 +1,5 @@
 Q56 · WRITE · No-show: add a strike, and ban from the queue on the third
-App: engine/finish.py:33-40 (apply_strikes; one lookup and save per player);
+App: engine/finish.js:26-37 (applyStrikes; one lookup and save per player);
 here one UPDATE for both.
 
 UPDATE profiles

@@ -1,5 +1,5 @@
 Q48 · WRITE · Delete every draft of the match
-App: engine/actor.py:894
+App: engine/actor.js:882
 
 DELETE FROM drafts
 WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';

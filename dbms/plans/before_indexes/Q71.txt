@@ -1,5 +1,5 @@
 Q71 · WRITE · After a database error in a match: abort it
-App: engine/actor.py:287-293
+App: engine/actor.js:285-299 (_failSafe)
 
 UPDATE matches
 SET status = 'aborted', end_reason = 'aborted', outcome = 'aborted',

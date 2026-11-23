@@ -1,5 +1,5 @@
 Q55 · WRITE · Unlock skins the player has just earned (tier or achievement)
-App: skins/service.py:36 (evaluate_unlocks; the app checks the owned set first)
+App: skins/service.js:26 (evaluateUnlocks; the app checks the owned set first)
 
 INSERT INTO inventory (profile_id, skin_id, source)
 VALUES (26, 'card.azure', 'tier'),

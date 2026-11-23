@@ -1,5 +1,5 @@
 Q73 · WRITE · Seed: add or update a problem by slug
-App: seed.py:39-62 (SELECT by slug, then INSERT or UPDATE); here one upsert.
+App: seed.js:41 (a Prisma upsert by slug); here one INSERT ... ON CONFLICT.
 
 INSERT INTO problems (slug, title, statement_md, biome, rating, tier, base_damage, base_recoil, time_limit_ms,
                       memory_mb, checker, tags, hints, stubs, status)

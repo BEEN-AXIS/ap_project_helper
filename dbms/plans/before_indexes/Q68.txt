@@ -1,6 +1,6 @@
 Q68 · WRITE · Admin: give a skin to a user by username
-App: api/admin.py:151-156 (user, profile and owned-check lookups, then
-INSERT); here INSERT ... SELECT over a JOIN.
+App: api/admin.js:15-17 and :118-119 (user, profile and owned-check lookups,
+then INSERT); here INSERT ... SELECT over a JOIN.
 
 INSERT INTO inventory (profile_id, skin_id, source)
 SELECT p.id, 'card.glitch', 'admin'

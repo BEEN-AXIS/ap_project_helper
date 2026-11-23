@@ -1,5 +1,5 @@
 Q75 · WRITE · Seed: write its new test cases
-App: seed.py:66
+App: seed.js:43-45 (one multi-row INSERT)
 
 INSERT INTO test_cases (problem_id, idx, input_text, expected_text, is_sample)
 VALUES (3, 0, E'5\n1 2 3 2 1\n', E'3\n', TRUE),

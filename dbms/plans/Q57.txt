@@ -1,5 +1,5 @@
 Q57 · READ · Shop: was this purchase already made (a retried click)?
-App: skins/service.py:58
+App: skins/service.js:47
 
 SELECT id, skin_id, price
 FROM purchases

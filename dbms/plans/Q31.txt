@@ -1,5 +1,5 @@
 Q31 · WRITE · Create a match: both players' snapshots, hands and the decks
-App: engine/service.py:161 (and :186 for bot-vs-bot)
+App: engine/service.js:116 (for createMatch and createBotVsBot)
 
 INSERT INTO matches (id, mode, map, status, seed, stage_theme, stage_owner_side, decks,
                      player1_profile_id, player1_name, player1_rating, player1_tier, player1_max_hp, player1_hp,

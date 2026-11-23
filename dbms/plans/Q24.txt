@@ -1,6 +1,7 @@
 Q24 · READ · Leaderboard, all time: the top 100 by rating
-App: api/players.py:207-208 (the same ORDER BY and LIMIT; the app numbers the
-rows and derives the tier in Python). Tier is derived from rating, not stored.
+App: db/sql.js:7-14 (ladderTop, via api/players.js:54: the same ORDER BY and
+LIMIT; the app numbers the rows and derives the tier in JavaScript). Tier is
+derived from rating, not stored.
 Ordering by the window's keys rather than by "rank" gives the same rows and
 lets ix_profiles_ladder hand back the first 100 in order, with no sort.
 

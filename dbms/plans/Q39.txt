@@ -1,6 +1,6 @@
 Q39 · WRITE · Record the judge's verdict and the damage it did
-App: engine/actor.py:316. Other verdicts write failed_test and recoil, or
-blocked and crit, instead of damage.
+App: engine/actor.js:317 (the submission's changed columns). Other verdicts
+write failed_test and recoil, or blocked and crit, instead of damage.
 
 UPDATE submissions
 SET status = 'done', verdict = 'AC', tests_passed = 8, tests_total = 8, time_ms = 41,

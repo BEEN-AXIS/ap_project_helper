@@ -1,5 +1,5 @@
 Q21 · READ · A player's achievements
-App: services/stats.py:142, engine/finish.py:183, skins/service.py:25
+App: services/stats.js:129, engine/finish.js:179, skins/service.js:18
 
 SELECT key, progress, earned_at, claimed_at
 FROM achievements

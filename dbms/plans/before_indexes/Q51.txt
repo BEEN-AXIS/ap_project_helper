@@ -1,6 +1,6 @@
 Q51 · WRITE · Apply the result to a player: rating, peak, W/L/D, AP, daily counters
-App: engine/finish.py:89-121 and _progress (the app computes each value and
-writes it; the counters reset when the UTC day changes)
+App: engine/finish.js:79-122 and progressFor (the app computes each value and
+writes it with saveProfile; the counters reset when the UTC day changes)
 
 UPDATE profiles
 SET rating = 1388,

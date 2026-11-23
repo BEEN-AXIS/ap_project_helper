@@ -1,5 +1,5 @@
 Q70 · READ · Health check
-App: main.py:141 (GET /healthz)
+App: db/sql.js:32 via app.js:101 (GET /healthz)
 
 SELECT 1;
 

@@ -1,5 +1,5 @@
 Q40 · WRITE · Save the editor's draft (insert, or overwrite the same slot and language)
-App: api/matches.py:300-308 (SELECT, then INSERT or UPDATE); here one upsert.
+App: api/matches.js:205-207 (SELECT, then INSERT or UPDATE); here one upsert.
 
 INSERT INTO drafts (match_id, profile_id, slot, language, code, problem_slug, updated_at)
 VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 101, 3, 'python', E'n = int(input())\nprint(bin(n).count("1"))',

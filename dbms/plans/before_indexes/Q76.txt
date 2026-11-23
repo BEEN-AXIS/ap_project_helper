@@ -1,5 +1,5 @@
 Q76 · WRITE · Seed: create a bot profile if it does not exist
-App: seed.py:104-110 (ensure_bots: SELECT, then INSERT)
+App: seed.js:64-68 (ensureBots: SELECT, then INSERT)
 
 INSERT INTO profiles (display_name, is_bot, personality, rating, peak_rating, avatar_color)
 SELECT 'Turtle', TRUE, 'turtle', 1200, 1200, '#22c55e'

@@ -1,7 +1,8 @@
 Q35 · WRITE · Save the match after a hit lands (HP, hand, stats, last event number)
-App: engine/actor.py:315 (session.merge). The ORM writes only the changed
-columns, so other commands (block, hint, reroll, connect) update a different
-subset of the player1_*/player2_* columns; this is the largest common one.
+App: engine/actor.js:309. The app writes only the changed columns
+(changedColumns, engine/actor.js), so other commands (block, hint, reroll,
+connect) update a different subset of the player1_*/player2_* columns; this
+is the largest common one.
 
 UPDATE matches
 SET last_seq = 17,

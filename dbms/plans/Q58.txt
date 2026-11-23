@@ -1,5 +1,5 @@
 Q58 · WRITE · Buy a skin: take the Arena Points, add it to the inventory, record the purchase
-App: skins/service.py:59-75 (checks in Python, then an UPDATE and two
+App: skins/service.js:48-59 (checks in JavaScript, then an UPDATE and two
 INSERTs); here one statement that does nothing when the player cannot pay
 or already owns it.
 

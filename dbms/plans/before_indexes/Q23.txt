@@ -1,5 +1,5 @@
 Q23 · READ · Rank among people: how many rate higher, and how many there are
-App: services/stats.py:161 and :163 (two COUNTs); here one self-join.
+App: services/stats.js:151 and :152 (two COUNTs); here one self-join.
 
 SELECT count(*) FILTER (WHERE o.rating > me.rating) + 1 AS position,
        count(*)                                         AS players

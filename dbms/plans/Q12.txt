@@ -1,5 +1,5 @@
 Q12 · WRITE · Save settings (volumes, music, code templates)
-App: api/players.py:103-106 (PUT /me/settings)
+App: api/players.js:132 (PATCH /me/settings)
 
 UPDATE profiles
 SET settings = '{"master": 0.8, "music": true, "musicVolume": 0.5, "codeLanguage": "cpp",

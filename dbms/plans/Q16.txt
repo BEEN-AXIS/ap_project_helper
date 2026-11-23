@@ -1,5 +1,5 @@
 Q16 · READ · Profile page: battle history (last 20 finished or aborted)
-App: api/players.py:178-180
+App: api/players.js:173
 
 SELECT id, mode, map, status, created_at, end_reason, labels, result,
        player1_profile_id, player1_name, player1_tier, player1_is_bot,

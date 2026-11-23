@@ -1,5 +1,5 @@
 Q22 · READ · The skins a player owns
-App: skins/service.py:17 (owned), services/stats.py:156, services/profiles.py:30
+App: skins/service.js:9 (owned), services/stats.js:143, services/profiles.js:22
 
 SELECT skin_id
 FROM inventory

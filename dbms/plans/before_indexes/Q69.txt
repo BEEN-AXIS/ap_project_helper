@@ -1,5 +1,5 @@
 Q69 · WRITE · Admin: reset a user's daily caps
-App: api/admin.py:166-172 (two lookups, then UPDATE); here UPDATE ... FROM.
+App: api/admin.js:129-131 (two lookups, then UPDATE); here UPDATE ... FROM.
 
 UPDATE profiles p
 SET bot_gain_today = 0, casual_ap_today = 0

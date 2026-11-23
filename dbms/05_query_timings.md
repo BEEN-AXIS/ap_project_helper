@@ -25,7 +25,7 @@ they take the whole file from 429 ms to 187 ms. See
 | Database | PostgreSQL 16.15 |
 | Settings changed | `shared_buffers = 512MB`, `work_mem = 16MB`, `max_wal_size = 2GB`, `synchronous_commit = off`, `jit = off`; everything else default |
 | Schema | [`03_schema.sql`](03_schema.sql) as it is: the indexes the app creates, the six new ones included |
-| Data | [`tools/load_problems.py`](tools/load_problems.py) (the 17 real problems, 144 test cases) and [`tools/benchmark_data.sql`](tools/benchmark_data.sql) (seeded, so every load is identical; "now" is fixed at 2026-11-23 12:00 UTC), then `VACUUM ANALYZE` |
+| Data | [`tools/load_problems.js`](tools/load_problems.js) (the 17 real problems, 144 test cases) and [`tools/benchmark_data.sql`](tools/benchmark_data.sql) (seeded, so every load is identical; "now" is fixed at 2026-11-23 12:00 UTC), then `VACUUM ANALYZE` |
 
 The data is shaped like the game: some players play far more than others, 60% of matches are
 ranked, 30% against bots and 10% practice, a few are drawn or aborted, 50 are being played
@@ -73,9 +73,10 @@ ranked, 30% against bots and 10% practice, a few are drawn or aborted, 50 are be
   by about ±0.1 ms between runs (more for the few writes that touch many rows), and the slow
   queries by ±15%. `EXPLAIN ANALYZE` adds a little overhead of its own to plans that pass many
   rows between steps. The numbers are the database's share only: the app runs these through
-  SQLAlchemy, so a request adds its own Python and network time on top. (The app itself has
-  also run on this PostgreSQL server: its test suite, the real server through bot and ranked
-  matches, and its 100-match load test; see the README's known gaps.)
+  Prisma, so a request adds its own JavaScript and network time on top. (These timings were
+  taken while the server was still written in Python with SQLAlchemy; the Node.js server
+  that replaced it runs the same statements, minus the two ORM reads Q34 and Q38, and its
+  migration builds the same schema on PostgreSQL 16, checked by `server/test/migrations.test.js`.)
 
 ## Results
 
@@ -230,8 +231,8 @@ ranked, 30% against bots and 10% practice, a few are drawn or aborted, 50 are be
   `created_at`, so PostgreSQL read every match (in parallel) and kept the newest 100 in a
   top-N sort.
 - **Q24 · Leaderboard, all time (30.061 ms).** Read all 20,005 profiles and sorted them by
-  rating to number the top 100. The app did worse: it loaded every person into Python and
-  sorted there.
+  rating to number the top 100. The app did worse at the time: it loaded every person into
+  memory and sorted there.
 - **Q23 · A player's rank (14.931 ms).** Counted the players rated higher by reading every
   profile.
 - Smaller ones: **Q30 and Q76**, finding one of four bots, read about 9,000 profiles to reach it
@@ -268,28 +269,29 @@ Q76 and Q14 go straight to their row.
 
 The indexes are partial where the app always filters the same way (people only, bots only,
 finished matches only), so they stay small: 8.8 MB together. Their `WHERE` clauses repeat the
-app's filters word for word, which is how both SQLite (the default database) and PostgreSQL
-prove a query is covered; both were checked with the app's own queries.
+app's filters word for word, which is how PostgreSQL proves a query is covered; this was
+checked with the app's own queries.
 
 **The app's queries were changed to match.** An index does nothing for a query that does not
-ask for what it holds, so the leaderboard code in `backend/app/api/players.py` changed with it:
+ask for what it holds, so the leaderboard code (now `server/src/api/players.js` and
+`server/src/db/sql.js`) changed with it:
 
 - The all-time board asks for the top 100 in index order (`ORDER BY rating DESC,
-  lower(display_name) LIMIT 100`) instead of loading every player into Python.
+  lower(display_name) LIMIT 100`) instead of loading every player into memory.
 - A player outside the top 100 gets their place from one count (Q77: the people rated higher,
   or rated the same with a name that sorts first), which the old code read off its full list.
 - The weekly and map boards read three columns of the matches they need instead of whole rows,
   and the map board asks for `winner_side IS NOT NULL`, the filter its index is built on.
 
-A test (`test_leaderboards_read_through_indexes_rank_like_before`) builds each board both ways,
-the old way in Python and the new way through the indexes, and checks that the rows, scores,
+A test (`the leaderboards rank like before` in `server/test/api.test.js`) builds each board both
+ways, the old way in memory and the new way through the indexes, and checks that the rows, scores,
 ranks and the player's own place are identical.
 
 ### What it costs
 
 Each insert into `profiles` or `matches`, and each update that changes an indexed column,
 now also writes to the new indexes. The three runs of the whole file are too noisy for costs
-this small, so [`tools/write_cost.py`](tools/write_cost.py) timed each of these writes 300 times
+this small, so [`tools/write_cost.js`](tools/write_cost.js) timed each of these writes 300 times
 (each in its own rolled-back transaction) in three rounds: with the indexes, without them,
 and with them again. Medians, from [`plans/write_cost.json`](plans/write_cost.json):
 
@@ -316,7 +318,7 @@ milliseconds per read.
 
 - **Q25 · weekly leaderboard (110.584 ms).** The index finds the week's matches in about 4 ms;
   the rest is reading each side's rating change out of the `result` JSON and adding them up. The
-  app sums in Python, and caches each board for 30 seconds, so it pays this at most twice a
+  app sums in JavaScript, and caches each board for 30 seconds, so it pays this at most twice a
   minute. To go further, store each side's rating change in its own column (or make
   `rating_history` hold every side and sum that), so the database adds numbers instead of
   parsing documents.
@@ -328,15 +330,15 @@ milliseconds per read.
 ```sh
 createdb algoarena
 psql -d algoarena -f dbms/03_schema.sql
-python3 dbms/tools/load_problems.py | psql -d algoarena
+node dbms/tools/load_problems.js | psql -d algoarena
 psql -d algoarena -f dbms/tools/benchmark_data.sql      # a few minutes
 psql -d algoarena -c "VACUUM ANALYZE"
-python3 dbms/tools/run_timings.py --restart "pg_ctl -D <data dir> -w restart" -d algoarena
+node dbms/tools/run_timings.js --restart "pg_ctl -D <data dir> -w restart" -d algoarena
 # the "before" run: drop the six new indexes and write the plans to their own folder
 psql -d algoarena -c "DROP INDEX ix_profiles_ladder, ix_profiles_display_name_lower, ix_profiles_bot_personality,
                       ix_matches_created_at, ix_matches_finished_end_time, ix_matches_map_winners"
-PLANS_DIR=dbms/plans/before_indexes python3 dbms/tools/run_timings.py --restart "..." -d algoarena
+PLANS_DIR=dbms/plans/before_indexes node dbms/tools/run_timings.js --restart "..." -d algoarena
 ```
 
-`run_timings.py` passes any arguments after `--restart` to `psql` (`-h`, `-p`, `-U`, `-d`), writes
+`run_timings.js` passes any arguments after `--restart` to `psql` (`-h`, `-p`, `-U`, `-d`), writes
 `plans/Qnn.txt` and `plans/timings.json`, and prints the table.

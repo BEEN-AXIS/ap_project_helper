@@ -1,5 +1,5 @@
 Q66 · WRITE · Admin: resolve a flag
-App: api/admin.py:113-117
+App: api/admin.js:90-93
 
 UPDATE flags
 SET status = 'dismissed'

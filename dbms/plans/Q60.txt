@@ -1,5 +1,5 @@
 Q60 · WRITE · Report an opponent: the target is whoever else was in the match
-App: api/players.py:155-159 (SELECT the match, then INSERT); here INSERT ... SELECT.
+App: api/players.js:157-160 (SELECT the match, then INSERT); here INSERT ... SELECT.
 
 INSERT INTO reports (reporter_id, match_id, target_profile_id, reason)
 SELECT 26, m.id,

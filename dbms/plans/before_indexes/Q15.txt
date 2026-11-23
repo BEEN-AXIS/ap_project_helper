@@ -1,5 +1,5 @@
 Q15 · READ · Profile page: the last 50 rating changes (the rating chart)
-App: api/players.py:176-177
+App: api/players.js:172
 
 SELECT match_id, before, after, delta, created_at
 FROM rating_history

@@ -1,5 +1,5 @@
 Q67 · WRITE · Admin: suspend a user for a week
-App: api/admin.py:132-136 (SELECT, then UPDATE); here one UPDATE.
+App: api/admin.js:102-105 (SELECT, then UPDATE); here one UPDATE.
 
 UPDATE users
 SET suspended_until = (now() AT TIME ZONE 'utc') + interval '7 days'

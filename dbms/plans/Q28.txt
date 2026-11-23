@@ -1,5 +1,5 @@
 Q28 · READ · Practice browser: every problem with whether I have solved it
-App: api/players.py:272 (the solved set; the list itself comes from the
+App: api/players.js:206 (the solved set; the list itself comes from the
 cache); here the list and the solved flag in one LEFT JOIN.
 
 SELECT p.slug, p.title, p.biome, p.tier, p.rating, (s.problem_id IS NOT NULL) AS solved

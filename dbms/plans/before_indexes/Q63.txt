@@ -1,5 +1,5 @@
 Q63 · WRITE · Admin: void a match (reverse every rating change it made)
-App: api/admin.py:73-80 (SELECT the rows, then a profile lookup and two
+App: api/admin.js:61-65 (SELECT the rows, then a profile lookup and two
 saves per row); here one UPDATE ... FROM over the rows it voids.
 
 WITH reversed AS (

@@ -1,5 +1,5 @@
 Q11 · READ · Home: today's quest progress
-App: api/players.py:47 (_quests, in GET /me and GET /quests)
+App: api/players.js:37 (questsOf, in GET /me and GET /quests)
 
 SELECT key, progress, target, earned_at, claimed_at
 FROM quest_progress

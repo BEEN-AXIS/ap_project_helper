@@ -1,7 +1,7 @@
 Q25 · READ · Leaderboard, this week: rating gained in matches that ended in the last 7 days
-App: api/players.py:211-232 (reads the week's matches, three columns, through
+App: api/players.js:57-80 (reads the week's matches, three columns, through
 ix_matches_finished_end_time and sums result.sides[n].delta per player in
-Python); here each match is split into its two sides with a LATERAL VALUES
+JavaScript); here each match is split into its two sides with a LATERAL VALUES
 list and joined to profiles.
 
 SELECT row_number() OVER (ORDER BY sum(x.delta) DESC, lower(p.display_name)) AS rank,

@@ -1,5 +1,5 @@
 Q33 · WRITE · Both players are ready: the match goes live
-App: engine/actor.py:315 (session.merge of the match after the ready check)
+App: engine/actor.js:309 (the match's changed columns, after the ready check)
 
 UPDATE matches
 SET status = 'live', start_time = now() AT TIME ZONE 'utc', last_seq = 3

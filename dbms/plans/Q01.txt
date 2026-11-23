@@ -1,5 +1,5 @@
 Q01 · READ · Sign up: is the username taken?
-App: api/auth.py:77 (POST /auth/signup); also seed.py:72, api/admin.py:132
+App: api/auth.js:54 (POST /auth/signup); also seed.js:50, api/admin.js:16 and :102
 
 SELECT id
 FROM users

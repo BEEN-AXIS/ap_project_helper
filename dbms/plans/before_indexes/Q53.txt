@@ -1,5 +1,5 @@
 Q53 · WRITE · Daily quest progress (create today's row or add to it)
-App: engine/finish.py:168-176 (SELECT, then INSERT or UPDATE); here one upsert
+App: engine/finish.js:165-170 (SELECT, then INSERT or UPDATE); here one upsert
 that never moves a quest that is already earned.
 
 INSERT INTO quest_progress (profile_id, day, key, progress, target)

@@ -1,5 +1,5 @@
 Q52 · WRITE · Record the rating change and its breakdown
-App: engine/finish.py:109
+App: engine/finish.js:106
 
 INSERT INTO rating_history (profile_id, match_id, before, after, delta, steps, multiplier)
 VALUES (26, '9348a163-6e39-4f78-8557-09984d57dc04', 1367, 1388, 21,

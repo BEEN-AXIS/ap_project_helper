@@ -1,5 +1,5 @@
 Q37 · WRITE · A player submits a card
-App: engine/actor.py:316 (session.merge of the new submission)
+App: engine/actor.js:313 (the new submission)
 
 INSERT INTO submissions (match_id, profile_id, problem_id, slot, language, code, cmd_id)
 VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 101, 3, 2, 'cpp',

@@ -1,5 +1,6 @@
 Q47 · WRITE · Void submissions still being judged when the match ended
-App: engine/actor.py:654 and :316 (one UPDATE per submission); here one UPDATE.
+App: engine/actor.js:317 (one UPDATE per submission voided in _finishCommon);
+here one UPDATE.
 
 UPDATE submissions
 SET status = 'void'

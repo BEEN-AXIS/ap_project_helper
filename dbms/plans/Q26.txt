@@ -1,6 +1,6 @@
 Q26 · READ · Leaderboard for one map: most wins there
-App: api/players.py:211-222 (reads the map's won matches, three columns, from
-ix_matches_map_winners and counts wins in Python); here the winner's profile
+App: api/players.js:57-68 (reads the map's won matches, three columns, from
+ix_matches_map_winners and counts wins in JavaScript); here the winner's profile
 is joined through the side that won.
 
 SELECT row_number() OVER (ORDER BY count(*) DESC, lower(p.display_name)) AS rank,

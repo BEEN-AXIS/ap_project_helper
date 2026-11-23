@@ -1,6 +1,6 @@
 Q04 · READ · The signed-in player (GET /me and every session payload): profile, account role and owned skins
-App: services/profiles.py:30-31 via api/players.py:59 and api/auth.py
-(_session_payload). The app reads the profile, the inventory and the user
+App: services/profiles.js:22-23 via api/players.js:108 and api/auth.js:30
+(sessionPayload). The app reads the profile, the inventory and the user
 separately; here one LEFT JOIN with the skins aggregated.
 
 SELECT p.id, p.display_name, p.rating, p.peak_rating, p.wins, p.losses, p.draws, p.points,

@@ -11,21 +11,22 @@ COPY frontend ./frontend
 RUN cd frontend && npm run build
 
 # ---- api ----
-FROM python:3.12-slim
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+FROM node:22-slim
 # The Docker CLI lets the API start sibling judge containers through the
 # mounted socket. Read the Docker socket warning in the README first.
+# OpenSSL is for Prisma's query engine.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends docker.io curl \
+ && apt-get install -y --no-install-recommends docker.io curl openssl \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY backend/requirements.txt backend/requirements.txt
-RUN pip install -r backend/requirements.txt
+COPY server/package.json server/package-lock.json* ./server/
+RUN cd server && (npm ci --omit=dev || npm install --omit=dev) && npm install --no-save prisma
 COPY shared ./shared
-COPY backend ./backend
+COPY server ./server
+RUN cd server && npx prisma generate
 COPY --from=web /src/frontend/dist ./frontend/dist
-WORKDIR /app/backend
-ENV FRONTEND_DIST=/app/frontend/dist SHARED_DIR=/app/shared
+WORKDIR /app/server
+ENV NODE_ENV=production FRONTEND_DIST=/app/frontend/dist SHARED_DIR=/app/shared HOST=0.0.0.0 PORT=8000
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --retries=6 CMD curl -fsS http://127.0.0.1:8000/api/healthz || exit 1
-CMD ["sh", "-c", "python -m app.seed && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/seed.js && exec node src/index.js"]

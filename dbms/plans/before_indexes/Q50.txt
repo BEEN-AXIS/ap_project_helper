@@ -1,5 +1,5 @@
 Q50 · READ · The people in the match (bots have no rating to change)
-App: engine/finish.py:77 (one primary-key lookup per side); here one IN list.
+App: engine/finish.js:79 (one primary-key lookup per side); here one IN list.
 
 SELECT id, rating, peak_rating, wins, losses, draws, points, bot_gain_today, casual_ap_today,
        daily_day, last_win_day, counters, badges

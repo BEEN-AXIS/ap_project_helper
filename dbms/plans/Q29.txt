@@ -1,6 +1,6 @@
 Q29 · READ · Matchmaking: both players of an accepted pairing
-App: engine/matchmaker.py:248 (two primary-key lookups); here one IN list.
-Also: api/matches.py:72 (the caller's profile before a bot or practice match)
+App: engine/matchmaker.js:233-234 (two primary-key lookups); here one IN list.
+Also: api/matches.js:33 (the caller's profile before a bot or practice match)
 
 SELECT id, display_name, rating, is_bot, equipped_card, equipped_avatar, equipped_arena,
        equipped_weapon, avatar_color, queue_ban_until

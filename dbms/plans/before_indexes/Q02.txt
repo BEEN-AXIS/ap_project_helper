@@ -1,5 +1,5 @@
 Q02 · WRITE · Sign up: create the user, their profile and their default skins
-App: api/auth.py:80, :84 and seed.py:96-97 (grant_defaults). The app does an
+App: api/auth.js:57-58 and services/profiles.js:45-46 (grantDefaults). The app does an
 INSERT, an INSERT and ten SELECT-then-INSERTs; here it is one statement.
 
 WITH new_user AS (

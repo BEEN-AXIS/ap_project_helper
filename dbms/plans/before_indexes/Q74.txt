@@ -1,5 +1,5 @@
 Q74 · WRITE · Seed: remove a problem's old test cases
-App: seed.py:64
+App: seed.js:42
 
 DELETE FROM test_cases
 WHERE problem_id = 3;

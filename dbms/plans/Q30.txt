@@ -1,5 +1,5 @@
 Q30 · READ · Pick a bot opponent by personality
-App: engine/service.py:209; also seed.py:104 (ensure_bots)
+App: engine/service.js:193; also seed.js:64 (ensureBots)
 
 SELECT *
 FROM profiles

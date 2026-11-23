@@ -1,5 +1,5 @@
 Q06 · READ · Refresh: the token, its user and their profile
-App: api/auth.py:129, :141 and :145 (three lookups); here one JOIN.
+App: api/auth.js:92, :103 and :105 (three lookups); here one JOIN.
 
 SELECT t.id AS token_id, t.expires_at, t.revoked_at,
        u.id AS user_id, u.role, u.suspended_until,

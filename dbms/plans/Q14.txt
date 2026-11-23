@@ -1,5 +1,6 @@
 Q14 · READ · Profile page: find the player by name (case-insensitive)
-App: api/players.py:173 (GET /profiles/{username})
+App: db/sql.js:25-29 (profileIdByName, a raw query so the expression index can
+answer it) via api/players.js:169 (GET /profiles/:username), then the row by id.
 
 SELECT *
 FROM profiles

@@ -1,5 +1,5 @@
 Q65 · READ · Admin: the latest 200 flags
-App: api/admin.py:100
+App: api/admin.js:82
 
 SELECT id, match_id, profile_id, kind, severity, details, status, created_at
 FROM flags

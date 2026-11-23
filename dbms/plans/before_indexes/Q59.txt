@@ -1,5 +1,5 @@
 Q59 · WRITE · Equip a skin (card, fighter, arena or weapon)
-App: api/skins.py:48-64
+App: skins/service.js:63-77 via api/skins.js:37-44
 
 UPDATE profiles
 SET equipped_arena = 'arena.sakura'

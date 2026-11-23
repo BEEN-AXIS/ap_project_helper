@@ -1,5 +1,6 @@
 Q08 · WRITE · Refresh: rotate (revoke the token that was just used)
-App: api/auth.py:140
+App: api/auth.js:101 (only while the token is still live, so two racing refreshes
+cannot both rotate it)
 
 UPDATE refresh_tokens
 SET revoked_at = now() AT TIME ZONE 'utc'

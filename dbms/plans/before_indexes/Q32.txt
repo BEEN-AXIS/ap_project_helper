@@ -1,6 +1,6 @@
 Q32 · READ · Reconnect or open the result page: the match and the public events after the last one the browser has
-App: api/matches.py:202 and :205-206 (the match, then its events); also
-api/matches.py:178. Here one LEFT JOIN.
+App: api/matches.js:136 and :138 (the match, then its events); also
+api/matches.js:120. Here one LEFT JOIN.
 
 SELECT m.status, m.last_seq, m.result, e.seq, e.t_ms, e.type, e.payload
 FROM matches m

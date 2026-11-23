@@ -2,8 +2,8 @@
 -- AlgoArena (cp_battle): every query the app runs, in PostgreSQL
 --
 -- Each block is one query: a number, -- READ or -- WRITE, what it is for, and
--- where the backend runs it (file:line under backend/app/). The backend uses
--- SQLAlchemy, so its SQL is generated; these statements do the same work.
+-- where the server runs it (file:line under server/src/). The server uses
+-- Prisma, so most of its SQL is generated; these statements do the same work.
 -- Where the app makes several round trips for one job (look up a user, then
 -- the profile, then the skins), the query here does it in one statement with a
 -- JOIN, a data-modifying CTE or INSERT ... SELECT, and the header says so.
@@ -32,7 +32,7 @@ BEGIN;
 
 -- =============================================================================
 -- Q01 · READ · Sign up: is the username taken?
--- App: api/auth.py:77 (POST /auth/signup); also seed.py:72, api/admin.py:132
+-- App: api/auth.js:54 (POST /auth/signup); also seed.js:50, api/admin.js:16 and :102
 -- =============================================================================
 -- READ
 SELECT id
@@ -41,7 +41,7 @@ WHERE username_lower = 'new_player';
 
 -- =============================================================================
 -- Q02 · WRITE · Sign up: create the user, their profile and their default skins
--- App: api/auth.py:80, :84 and seed.py:96-97 (grant_defaults). The app does an
+-- App: api/auth.js:57-58 and services/profiles.js:45-46 (grantDefaults). The app does an
 -- INSERT, an INSERT and ten SELECT-then-INSERTs; here it is one statement.
 -- =============================================================================
 -- WRITE
@@ -68,7 +68,7 @@ CROSS JOIN new_profile p;
 
 -- =============================================================================
 -- Q03 · READ · Log in: the user and their profile
--- App: api/auth.py:104 and :113 (two lookups); here one JOIN.
+-- App: api/auth.js:77 and :81 (two lookups); here one JOIN.
 -- =============================================================================
 -- READ
 SELECT u.id AS user_id, u.password_hash, u.role, u.suspended_until,
@@ -80,8 +80,8 @@ WHERE u.username_lower = 'player_26';
 -- =============================================================================
 -- Q04 · READ · The signed-in player (GET /me and every session payload):
 -- profile, account role and owned skins
--- App: services/profiles.py:30-31 via api/players.py:59 and api/auth.py
--- (_session_payload). The app reads the profile, the inventory and the user
+-- App: services/profiles.js:22-23 via api/players.js:108 and api/auth.js:30
+-- (sessionPayload). The app reads the profile, the inventory and the user
 -- separately; here one LEFT JOIN with the skins aggregated.
 -- =============================================================================
 -- READ
@@ -98,7 +98,7 @@ GROUP BY p.id, u.id;
 
 -- =============================================================================
 -- Q05 · WRITE · Issue a refresh token (only its SHA-256 is stored)
--- App: api/auth.py:50 (_issue_refresh, on signup, login and refresh)
+-- App: api/auth.js:19 (issueRefresh, on signup, login and refresh)
 -- =============================================================================
 -- WRITE
 INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
@@ -107,7 +107,7 @@ VALUES (26, '5d41402abc4b2a76b9719d911017c592aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
 
 -- =============================================================================
 -- Q06 · READ · Refresh: the token, its user and their profile
--- App: api/auth.py:129, :141 and :145 (three lookups); here one JOIN.
+-- App: api/auth.js:92, :103 and :105 (three lookups); here one JOIN.
 -- =============================================================================
 -- READ
 SELECT t.id AS token_id, t.expires_at, t.revoked_at,
@@ -120,7 +120,7 @@ WHERE t.token_hash = '63cb14d415156152101161aa436b76b38f0fdab62416603f916dbc4488
 
 -- =============================================================================
 -- Q07 · WRITE · Refresh with a token that was already used: revoke the whole family
--- App: api/auth.py:134-136 (SELECT the live tokens, then UPDATE each); here one UPDATE.
+-- App: api/auth.js:96 (one UPDATE of every live token of the user, as here).
 -- =============================================================================
 -- WRITE
 UPDATE refresh_tokens
@@ -130,7 +130,8 @@ WHERE user_id = 26
 
 -- =============================================================================
 -- Q08 · WRITE · Refresh: rotate (revoke the token that was just used)
--- App: api/auth.py:140
+-- App: api/auth.js:101 (only while the token is still live, so two racing refreshes
+-- cannot both rotate it)
 -- =============================================================================
 -- WRITE
 UPDATE refresh_tokens
@@ -139,7 +140,7 @@ WHERE id = 126;
 
 -- =============================================================================
 -- Q09 · WRITE · Log out: revoke the cookie's token
--- App: api/auth.py:160-163 (SELECT by hash, then UPDATE); here one UPDATE.
+-- App: api/auth.js:114 (one UPDATE by hash, as here).
 -- =============================================================================
 -- WRITE
 UPDATE refresh_tokens
@@ -153,7 +154,7 @@ WHERE token_hash = '75f5a8b1be256ecd88bf5eb7ab5e078fcdb020fd46fdc1c6e82803d5e90c
 
 -- =============================================================================
 -- Q10 · READ · Home: my last 8 finished or aborted matches
--- App: api/players.py:62-64 (GET /me)
+-- App: api/players.js:107 (GET /me)
 -- =============================================================================
 -- READ
 SELECT id, mode, map, status, created_at, end_reason, labels, result,
@@ -167,7 +168,7 @@ LIMIT 8;
 
 -- =============================================================================
 -- Q11 · READ · Home: today's quest progress
--- App: api/players.py:47 (_quests, in GET /me and GET /quests)
+-- App: api/players.js:37 (questsOf, in GET /me and GET /quests)
 -- =============================================================================
 -- READ
 SELECT key, progress, target, earned_at, claimed_at
@@ -177,7 +178,7 @@ WHERE profile_id = 26
 
 -- =============================================================================
 -- Q12 · WRITE · Save settings (volumes, music, code templates)
--- App: api/players.py:103-106 (PUT /me/settings)
+-- App: api/players.js:132 (PATCH /me/settings)
 -- =============================================================================
 -- WRITE
 UPDATE profiles
@@ -187,9 +188,10 @@ WHERE id = 26;
 
 -- =============================================================================
 -- Q13 · WRITE · Claim a finished quest and pay its Arena Points
--- App: api/players.py:120-131 (SELECT the quest, SELECT the profile, then two
--- UPDATEs); here one statement: the quest is marked claimed only if it was
--- earned and not yet claimed, and the points are added through a join on it.
+-- App: api/players.js:142-147 (SELECT the quest, an UPDATE that marks it claimed
+-- only if it was not, then an UPDATE that adds the points); here one statement:
+-- the quest is marked claimed only if it was earned and not yet claimed, and the
+-- points are added through a join on it.
 -- =============================================================================
 -- WRITE
 WITH claimed AS (
@@ -208,7 +210,8 @@ RETURNING p.points;
 
 -- =============================================================================
 -- Q14 · READ · Profile page: find the player by name (case-insensitive)
--- App: api/players.py:173 (GET /profiles/{username})
+-- App: db/sql.js:25-29 (profileIdByName, a raw query so the expression index can
+-- answer it) via api/players.js:169 (GET /profiles/:username), then the row by id.
 -- =============================================================================
 -- READ
 SELECT *
@@ -219,7 +222,7 @@ LIMIT 1;
 
 -- =============================================================================
 -- Q15 · READ · Profile page: the last 50 rating changes (the rating chart)
--- App: api/players.py:176-177
+-- App: api/players.js:172
 -- =============================================================================
 -- READ
 SELECT match_id, before, after, delta, created_at
@@ -231,7 +234,7 @@ LIMIT 50;
 
 -- =============================================================================
 -- Q16 · READ · Profile page: battle history (last 20 finished or aborted)
--- App: api/players.py:178-180
+-- App: api/players.js:173
 -- =============================================================================
 -- READ
 SELECT id, mode, map, status, created_at, end_reason, labels, result,
@@ -245,7 +248,7 @@ LIMIT 20;
 
 -- =============================================================================
 -- Q17 · READ · Profile page: accuracy (accepted out of judged)
--- App: api/players.py:181 and :182 (two COUNTs); here one scan with FILTER.
+-- App: api/players.js:174 and :175 (two COUNTs); here one scan with FILTER.
 -- =============================================================================
 -- READ
 SELECT count(*) FILTER (WHERE verdict = 'AC')  AS accepted,
@@ -255,7 +258,7 @@ WHERE profile_id = 26;
 
 -- =============================================================================
 -- Q18 · READ · Career stats: up to 1000 finished matches (streaks, maps, activity)
--- App: services/stats.py:113-115. The app reads whole rows; these are the
+-- App: services/stats.js:100-104. The app reads whole rows; these are the
 -- columns the summary uses.
 -- =============================================================================
 -- READ
@@ -270,7 +273,7 @@ LIMIT 1000;
 
 -- =============================================================================
 -- Q19 · READ · Career stats: submissions by language, by verdict, and in total
--- App: services/stats.py:119-127 (reads every row and counts in Python);
+-- App: services/stats.js:108-118 (reads every row and counts in JavaScript);
 -- here GROUPING SETS return all three counts in one pass.
 -- =============================================================================
 -- READ
@@ -283,8 +286,8 @@ ORDER BY language NULLS LAST, verdict NULLS LAST;
 
 -- =============================================================================
 -- Q20 · READ · Career stats: distinct problems solved, by topic and tier
--- App: services/stats.py:119-134 (joins submission rows to the problem cache
--- in Python); here a JOIN to problems.
+-- App: services/stats.js:108-127 (joins submission rows to the problem cache
+-- in JavaScript); here a JOIN to problems.
 -- =============================================================================
 -- READ
 SELECT pr.biome, pr.tier, count(DISTINCT s.problem_id) AS solved
@@ -298,7 +301,7 @@ ORDER BY pr.biome, pr.tier;
 
 -- =============================================================================
 -- Q21 · READ · A player's achievements
--- App: services/stats.py:142, engine/finish.py:183, skins/service.py:25
+-- App: services/stats.js:129, engine/finish.js:179, skins/service.js:18
 -- =============================================================================
 -- READ
 SELECT key, progress, earned_at, claimed_at
@@ -307,7 +310,7 @@ WHERE profile_id = 26;
 
 -- =============================================================================
 -- Q22 · READ · The skins a player owns
--- App: skins/service.py:17 (owned), services/stats.py:156, services/profiles.py:30
+-- App: skins/service.js:9 (owned), services/stats.js:143, services/profiles.js:22
 -- =============================================================================
 -- READ
 SELECT skin_id
@@ -316,7 +319,7 @@ WHERE profile_id = 26;
 
 -- =============================================================================
 -- Q23 · READ · Rank among people: how many rate higher, and how many there are
--- App: services/stats.py:161 and :163 (two COUNTs); here one self-join.
+-- App: services/stats.js:151 and :152 (two COUNTs); here one self-join.
 -- =============================================================================
 -- READ
 SELECT count(*) FILTER (WHERE o.rating > me.rating) + 1 AS position,
@@ -331,8 +334,9 @@ WHERE me.id = 26;
 
 -- =============================================================================
 -- Q24 · READ · Leaderboard, all time: the top 100 by rating
--- App: api/players.py:207-208 (the same ORDER BY and LIMIT; the app numbers the
--- rows and derives the tier in Python). Tier is derived from rating, not stored.
+-- App: db/sql.js:7-14 (ladderTop, via api/players.js:54: the same ORDER BY and
+-- LIMIT; the app numbers the rows and derives the tier in JavaScript). Tier is
+-- derived from rating, not stored.
 -- Ordering by the window's keys rather than by "rank" gives the same rows and
 -- lets ix_profiles_ladder hand back the first 100 in order, with no sort.
 -- =============================================================================
@@ -351,9 +355,9 @@ LIMIT 100;
 -- =============================================================================
 -- Q25 · READ · Leaderboard, this week: rating gained in matches that ended in
 -- the last 7 days
--- App: api/players.py:211-232 (reads the week's matches, three columns, through
+-- App: api/players.js:57-80 (reads the week's matches, three columns, through
 -- ix_matches_finished_end_time and sums result.sides[n].delta per player in
--- Python); here each match is split into its two sides with a LATERAL VALUES
+-- JavaScript); here each match is split into its two sides with a LATERAL VALUES
 -- list and joined to profiles.
 -- =============================================================================
 -- READ
@@ -373,8 +377,8 @@ LIMIT 100;
 
 -- =============================================================================
 -- Q26 · READ · Leaderboard for one map: most wins there
--- App: api/players.py:211-222 (reads the map's won matches, three columns, from
--- ix_matches_map_winners and counts wins in Python); here the winner's profile
+-- App: api/players.js:57-68 (reads the map's won matches, three columns, from
+-- ix_matches_map_winners and counts wins in JavaScript); here the winner's profile
 -- is joined through the side that won.
 -- =============================================================================
 -- READ
@@ -393,8 +397,9 @@ LIMIT 100;
 
 -- =============================================================================
 -- Q77 · READ · Leaderboard, all time: my place when I am outside the top 100
--- App: api/players.py:243-245 (_ladder_place). The people ordered ahead of me
--- on the board: rated higher, or rated the same with a name that sorts first.
+-- App: db/sql.js:16-22 (ladderAhead) via api/players.js:89-94 (ladderPlace). The
+-- people ordered ahead of me on the board: rated higher, or rated the same with a
+-- name that sorts first.
 -- Player 26 is rated 1367.
 -- =============================================================================
 -- READ
@@ -410,7 +415,7 @@ WHERE NOT is_bot
 
 -- =============================================================================
 -- Q27 · READ · Load the problem cache: every published problem with its tests
--- App: services/problems.py:78 and :80 (one query for the problems, then one
+-- App: services/problems.js:31 and :34 (one query for the problems, then one
 -- per problem for its tests, 1 + N round trips); here one LEFT JOIN.
 -- =============================================================================
 -- READ
@@ -424,7 +429,7 @@ ORDER BY p.id, t.idx;
 
 -- =============================================================================
 -- Q28 · READ · Practice browser: every problem with whether I have solved it
--- App: api/players.py:272 (the solved set; the list itself comes from the
+-- App: api/players.js:206 (the solved set; the list itself comes from the
 -- cache); here the list and the solved flag in one LEFT JOIN.
 -- =============================================================================
 -- READ
@@ -442,8 +447,8 @@ ORDER BY p.biome, p.tier, p.slug;
 
 -- =============================================================================
 -- Q29 · READ · Matchmaking: both players of an accepted pairing
--- App: engine/matchmaker.py:248 (two primary-key lookups); here one IN list.
--- Also: api/matches.py:72 (the caller's profile before a bot or practice match)
+-- App: engine/matchmaker.js:233-234 (two primary-key lookups); here one IN list.
+-- Also: api/matches.js:33 (the caller's profile before a bot or practice match)
 -- =============================================================================
 -- READ
 SELECT id, display_name, rating, is_bot, equipped_card, equipped_avatar, equipped_arena,
@@ -453,7 +458,7 @@ WHERE id IN (26, 3866);
 
 -- =============================================================================
 -- Q30 · READ · Pick a bot opponent by personality
--- App: engine/service.py:209; also seed.py:104 (ensure_bots)
+-- App: engine/service.js:193; also seed.js:64 (ensureBots)
 -- =============================================================================
 -- READ
 SELECT *
@@ -464,7 +469,7 @@ LIMIT 1;
 
 -- =============================================================================
 -- Q31 · WRITE · Create a match: both players' snapshots, hands and the decks
--- App: engine/service.py:161 (and :186 for bot-vs-bot)
+-- App: engine/service.js:116 (for createMatch and createBotVsBot)
 -- =============================================================================
 -- WRITE
 INSERT INTO matches (id, mode, map, status, seed, stage_theme, stage_owner_side, decks,
@@ -484,8 +489,8 @@ VALUES ('b5e0c0de-1111-4222-8333-444455556666', 'ranked', 'bit', 'starting', 912
 -- =============================================================================
 -- Q32 · READ · Reconnect or open the result page: the match and the public
 -- events after the last one the browser has
--- App: api/matches.py:202 and :205-206 (the match, then its events); also
--- api/matches.py:178. Here one LEFT JOIN.
+-- App: api/matches.js:136 and :138 (the match, then its events); also
+-- api/matches.js:120. Here one LEFT JOIN.
 -- =============================================================================
 -- READ
 SELECT m.status, m.last_seq, m.result, e.seq, e.t_ms, e.type, e.payload
@@ -503,7 +508,7 @@ LIMIT 500;
 
 -- =============================================================================
 -- Q33 · WRITE · Both players are ready: the match goes live
--- App: engine/actor.py:315 (session.merge of the match after the ready check)
+-- App: engine/actor.js:309 (the match's changed columns, after the ready check)
 -- =============================================================================
 -- WRITE
 UPDATE matches
@@ -512,7 +517,9 @@ WHERE id = 'b5e0c0de-1111-4222-8333-444455556666';
 
 -- =============================================================================
 -- Q34 · READ · Before each save, the ORM loads the match row it merges into
--- App: engine/actor.py:313 (session.merge issues a primary-key SELECT)
+-- App: no longer run. The SQLAlchemy backend read the row before every merge;
+-- Prisma's update (engine/actor.js:309) is one UPDATE by primary key and reads
+-- nothing first. Kept so the timings below still line up with 05.
 -- =============================================================================
 -- READ
 SELECT *
@@ -521,9 +528,10 @@ WHERE id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
 -- =============================================================================
 -- Q35 · WRITE · Save the match after a hit lands (HP, hand, stats, last event number)
--- App: engine/actor.py:315 (session.merge). The ORM writes only the changed
--- columns, so other commands (block, hint, reroll, connect) update a different
--- subset of the player1_*/player2_* columns; this is the largest common one.
+-- App: engine/actor.js:309. The app writes only the changed columns
+-- (changedColumns, engine/actor.js), so other commands (block, hint, reroll,
+-- connect) update a different subset of the player1_*/player2_* columns; this
+-- is the largest common one.
 -- =============================================================================
 -- WRITE
 UPDATE matches
@@ -538,7 +546,8 @@ WHERE id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
 -- =============================================================================
 -- Q36 · WRITE · Append the command's events to the match log
--- App: engine/actor.py:321 (one INSERT per event, same transaction)
+-- App: engine/actor.js:326 (one multi-row INSERT for the command's events, same
+-- transaction)
 -- =============================================================================
 -- WRITE
 INSERT INTO match_events (match_id, seq, t_ms, type, payload, visibility)
@@ -548,7 +557,7 @@ VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 15, 301250, 'submission.received
 
 -- =============================================================================
 -- Q37 · WRITE · A player submits a card
--- App: engine/actor.py:316 (session.merge of the new submission)
+-- App: engine/actor.js:313 (the new submission)
 -- =============================================================================
 -- WRITE
 INSERT INTO submissions (match_id, profile_id, problem_id, slot, language, code, cmd_id)
@@ -559,8 +568,9 @@ RETURNING id;
 
 -- =============================================================================
 -- Q38 · READ · Before saving the verdict, the ORM loads the submission it merges into
--- App: engine/actor.py:315 (session.merge issues a primary-key SELECT). The
--- app binds the id; here (SELECT currval(...)) stands for "the id Q37 returned".
+-- App: no longer run. The SQLAlchemy backend read the submission before
+-- merging the verdict; Prisma's update (engine/actor.js:317) does not. Here
+-- (SELECT currval(...)) stands for "the id Q37 returned".
 -- It must be a subquery: a bare currval() is volatile and would make
 -- PostgreSQL scan the table instead of using the primary key.
 -- =============================================================================
@@ -571,8 +581,8 @@ WHERE id = (SELECT currval('submissions_id_seq'));
 
 -- =============================================================================
 -- Q39 · WRITE · Record the judge's verdict and the damage it did
--- App: engine/actor.py:316. Other verdicts write failed_test and recoil, or
--- blocked and crit, instead of damage.
+-- App: engine/actor.js:317 (the submission's changed columns). Other verdicts
+-- write failed_test and recoil, or blocked and crit, instead of damage.
 -- =============================================================================
 -- WRITE
 UPDATE submissions
@@ -582,7 +592,7 @@ WHERE id = (SELECT currval('submissions_id_seq'));
 
 -- =============================================================================
 -- Q40 · WRITE · Save the editor's draft (insert, or overwrite the same slot and language)
--- App: api/matches.py:300-308 (SELECT, then INSERT or UPDATE); here one upsert.
+-- App: api/matches.js:205-207 (SELECT, then INSERT or UPDATE); here one upsert.
 -- =============================================================================
 -- WRITE
 INSERT INTO drafts (match_id, profile_id, slot, language, code, problem_slug, updated_at)
@@ -593,7 +603,7 @@ DO UPDATE SET code = EXCLUDED.code, problem_slug = EXCLUDED.problem_slug, update
 
 -- =============================================================================
 -- Q41 · READ · Reopen the editor: all my drafts in this match
--- App: api/matches.py:317
+-- App: api/matches.js:212
 -- =============================================================================
 -- READ
 SELECT slot, language, code, problem_slug, updated_at
@@ -603,7 +613,7 @@ WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'
 
 -- =============================================================================
 -- Q42 · READ · One slot's draft
--- App: api/matches.py:327
+-- App: api/matches.js:218
 -- =============================================================================
 -- READ
 SELECT slot, language, code, problem_slug
@@ -615,7 +625,7 @@ LIMIT 1;
 
 -- =============================================================================
 -- Q43 · WRITE · A card was submitted: drop that slot's drafts
--- App: engine/actor.py:755
+-- App: engine/actor.js:755
 -- =============================================================================
 -- WRITE
 DELETE FROM drafts
@@ -625,7 +635,7 @@ WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'
 
 -- =============================================================================
 -- Q44 · WRITE · Flag a match for review (repeated judge system errors)
--- App: engine/actor.py:661 and :956-959 (_flag)
+-- App: engine/actor.js:662
 -- =============================================================================
 -- WRITE
 INSERT INTO flags (match_id, profile_id, kind, severity, details)
@@ -633,7 +643,8 @@ VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 101, 'judge_system_errors', 1, '
 
 -- =============================================================================
 -- Q45 · READ · Rebuild a match from its log (replays, recovery)
--- App: engine/actor.py:950-951 (_load_events, every visibility)
+-- App: engine/actor.js:437 (resuming a socket: every visibility, filtered in
+-- JavaScript)
 -- =============================================================================
 -- READ
 SELECT seq, t_ms, type, payload, visibility
@@ -648,7 +659,7 @@ ORDER BY seq;
 
 -- =============================================================================
 -- Q46 · WRITE · Close the match: outcome, labels, the result screen
--- App: engine/actor.py:315 (session.merge after the final command)
+-- App: engine/actor.js:309 (the match's changed columns after the final command)
 -- =============================================================================
 -- WRITE
 UPDATE matches
@@ -661,7 +672,8 @@ WHERE id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
 -- =============================================================================
 -- Q47 · WRITE · Void submissions still being judged when the match ended
--- App: engine/actor.py:654 and :316 (one UPDATE per submission); here one UPDATE.
+-- App: engine/actor.js:317 (one UPDATE per submission voided in _finishCommon);
+-- here one UPDATE.
 -- =============================================================================
 -- WRITE
 UPDATE submissions
@@ -671,7 +683,7 @@ WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'
 
 -- =============================================================================
 -- Q48 · WRITE · Delete every draft of the match
--- App: engine/actor.py:894
+-- App: engine/actor.js:882
 -- =============================================================================
 -- WRITE
 DELETE FROM drafts
@@ -679,7 +691,7 @@ WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f';
 
 -- =============================================================================
 -- Q49 · READ · Rematch rule: ranked meetings of the same pair in the last hour
--- App: engine/finish.py:46-53 (_previous_meetings; the app counts the rows)
+-- App: engine/finish.js:39-49 (previousMeetings; the app counts with COUNT(*))
 -- =============================================================================
 -- READ
 SELECT count(*)
@@ -693,7 +705,7 @@ WHERE mode = 'ranked'
 
 -- =============================================================================
 -- Q50 · READ · The people in the match (bots have no rating to change)
--- App: engine/finish.py:77 (one primary-key lookup per side); here one IN list.
+-- App: engine/finish.js:79 (one primary-key lookup per side); here one IN list.
 -- =============================================================================
 -- READ
 SELECT id, rating, peak_rating, wins, losses, draws, points, bot_gain_today, casual_ap_today,
@@ -704,8 +716,8 @@ WHERE id IN (26, 3866)
 
 -- =============================================================================
 -- Q51 · WRITE · Apply the result to a player: rating, peak, W/L/D, AP, daily counters
--- App: engine/finish.py:89-121 and _progress (the app computes each value and
--- writes it; the counters reset when the UTC day changes)
+-- App: engine/finish.js:79-122 and progressFor (the app computes each value and
+-- writes it with saveProfile; the counters reset when the UTC day changes)
 -- =============================================================================
 -- WRITE
 UPDATE profiles
@@ -721,7 +733,7 @@ WHERE id = 26;
 
 -- =============================================================================
 -- Q52 · WRITE · Record the rating change and its breakdown
--- App: engine/finish.py:109
+-- App: engine/finish.js:106
 -- =============================================================================
 -- WRITE
 INSERT INTO rating_history (profile_id, match_id, before, after, delta, steps, multiplier)
@@ -730,7 +742,7 @@ VALUES (26, '9348a163-6e39-4f78-8557-09984d57dc04', 1367, 1388, 21,
 
 -- =============================================================================
 -- Q53 · WRITE · Daily quest progress (create today's row or add to it)
--- App: engine/finish.py:168-176 (SELECT, then INSERT or UPDATE); here one upsert
+-- App: engine/finish.js:165-170 (SELECT, then INSERT or UPDATE); here one upsert
 -- that never moves a quest that is already earned.
 -- =============================================================================
 -- WRITE
@@ -744,7 +756,7 @@ WHERE quest_progress.earned_at IS NULL;
 
 -- =============================================================================
 -- Q54 · WRITE · A new achievement: record it, add the badge, save the counters
--- App: engine/finish.py:181-188 (INSERT, then the profile's badges and counters
+-- App: engine/finish.js:181-184 (INSERT, then the profile's badges and counters
 -- in the later profile UPDATE); here one statement joined on the new row.
 -- =============================================================================
 -- WRITE
@@ -763,7 +775,7 @@ WHERE p.id = e.profile_id;
 
 -- =============================================================================
 -- Q55 · WRITE · Unlock skins the player has just earned (tier or achievement)
--- App: skins/service.py:36 (evaluate_unlocks; the app checks the owned set first)
+-- App: skins/service.js:26 (evaluateUnlocks; the app checks the owned set first)
 -- =============================================================================
 -- WRITE
 INSERT INTO inventory (profile_id, skin_id, source)
@@ -773,7 +785,7 @@ ON CONFLICT (profile_id, skin_id) DO NOTHING;
 
 -- =============================================================================
 -- Q56 · WRITE · No-show: add a strike, and ban from the queue on the third
--- App: engine/finish.py:33-40 (apply_strikes; one lookup and save per player);
+-- App: engine/finish.js:26-37 (applyStrikes; one lookup and save per player);
 -- here one UPDATE for both.
 -- =============================================================================
 -- WRITE
@@ -790,7 +802,7 @@ WHERE id IN (101, 5001);
 
 -- =============================================================================
 -- Q57 · READ · Shop: was this purchase already made (a retried click)?
--- App: skins/service.py:58
+-- App: skins/service.js:47
 -- =============================================================================
 -- READ
 SELECT id, skin_id, price
@@ -801,7 +813,7 @@ WHERE profile_id = 26
 -- =============================================================================
 -- Q58 · WRITE · Buy a skin: take the Arena Points, add it to the inventory,
 -- record the purchase
--- App: skins/service.py:59-75 (checks in Python, then an UPDATE and two
+-- App: skins/service.js:48-59 (checks in JavaScript, then an UPDATE and two
 -- INSERTs); here one statement that does nothing when the player cannot pay
 -- or already owns it.
 -- =============================================================================
@@ -826,7 +838,7 @@ RETURNING id;
 
 -- =============================================================================
 -- Q59 · WRITE · Equip a skin (card, fighter, arena or weapon)
--- App: api/skins.py:48-64
+-- App: skins/service.js:63-77 via api/skins.js:37-44
 -- =============================================================================
 -- WRITE
 UPDATE profiles
@@ -835,7 +847,7 @@ WHERE id = 26;
 
 -- =============================================================================
 -- Q60 · WRITE · Report an opponent: the target is whoever else was in the match
--- App: api/players.py:155-159 (SELECT the match, then INSERT); here INSERT ... SELECT.
+-- App: api/players.js:157-160 (SELECT the match, then INSERT); here INSERT ... SELECT.
 -- =============================================================================
 -- WRITE
 INSERT INTO reports (reporter_id, match_id, target_profile_id, reason)
@@ -851,7 +863,7 @@ WHERE m.id = '9348a163-6e39-4f78-8557-09984d57dc04';
 
 -- =============================================================================
 -- Q61 · READ · Admin: the latest 100 matches, searched by player name or id
--- App: api/admin.py:45-48 (the app filters the 100 rows in Python)
+-- App: api/admin.js:45-46 (the app filters the 100 rows in JavaScript)
 -- =============================================================================
 -- READ
 SELECT id, mode, map, status, created_at, end_reason, winner_side, player1_name, player2_name
@@ -864,7 +876,7 @@ ORDER BY created_at DESC;
 
 -- =============================================================================
 -- Q62 · READ · Admin: a match's full event log, private events included
--- App: api/admin.py:58
+-- App: api/admin.js:52
 -- =============================================================================
 -- READ
 SELECT seq, t_ms, type, visibility, payload
@@ -874,7 +886,7 @@ ORDER BY seq;
 
 -- =============================================================================
 -- Q63 · WRITE · Admin: void a match (reverse every rating change it made)
--- App: api/admin.py:73-80 (SELECT the rows, then a profile lookup and two
+-- App: api/admin.js:61-65 (SELECT the rows, then a profile lookup and two
 -- saves per row); here one UPDATE ... FROM over the rows it voids.
 -- =============================================================================
 -- WRITE
@@ -893,7 +905,7 @@ RETURNING p.id, p.rating;
 
 -- =============================================================================
 -- Q64 · WRITE · Admin: write the audit log
--- App: api/admin.py:24 (_audit, after every admin action)
+-- App: api/admin.js:13 (audit, after every admin action)
 -- =============================================================================
 -- WRITE
 INSERT INTO audit_log (actor_id, action, target, details)
@@ -901,7 +913,7 @@ VALUES (1, 'void_match', '9348a163-6e39-4f78-8557-09984d57dc04', '{"reason": "sh
 
 -- =============================================================================
 -- Q65 · READ · Admin: the latest 200 flags
--- App: api/admin.py:100
+-- App: api/admin.js:82
 -- =============================================================================
 -- READ
 SELECT id, match_id, profile_id, kind, severity, details, status, created_at
@@ -911,7 +923,7 @@ LIMIT 200;
 
 -- =============================================================================
 -- Q66 · WRITE · Admin: resolve a flag
--- App: api/admin.py:113-117
+-- App: api/admin.js:90-93
 -- =============================================================================
 -- WRITE
 UPDATE flags
@@ -920,7 +932,7 @@ WHERE id = 1;
 
 -- =============================================================================
 -- Q67 · WRITE · Admin: suspend a user for a week
--- App: api/admin.py:132-136 (SELECT, then UPDATE); here one UPDATE.
+-- App: api/admin.js:102-105 (SELECT, then UPDATE); here one UPDATE.
 -- =============================================================================
 -- WRITE
 UPDATE users
@@ -929,8 +941,8 @@ WHERE username_lower = 'player_26';
 
 -- =============================================================================
 -- Q68 · WRITE · Admin: give a skin to a user by username
--- App: api/admin.py:151-156 (user, profile and owned-check lookups, then
--- INSERT); here INSERT ... SELECT over a JOIN.
+-- App: api/admin.js:15-17 and :118-119 (user, profile and owned-check lookups,
+-- then INSERT); here INSERT ... SELECT over a JOIN.
 -- =============================================================================
 -- WRITE
 INSERT INTO inventory (profile_id, skin_id, source)
@@ -942,7 +954,7 @@ ON CONFLICT (profile_id, skin_id) DO NOTHING;
 
 -- =============================================================================
 -- Q69 · WRITE · Admin: reset a user's daily caps
--- App: api/admin.py:166-172 (two lookups, then UPDATE); here UPDATE ... FROM.
+-- App: api/admin.js:129-131 (two lookups, then UPDATE); here UPDATE ... FROM.
 -- =============================================================================
 -- WRITE
 UPDATE profiles p
@@ -957,14 +969,14 @@ WHERE u.id = p.user_id
 
 -- =============================================================================
 -- Q70 · READ · Health check
--- App: main.py:141 (GET /healthz)
+-- App: db/sql.js:32 via app.js:101 (GET /healthz)
 -- =============================================================================
 -- READ
 SELECT 1;
 
 -- =============================================================================
 -- Q71 · WRITE · After a database error in a match: abort it
--- App: engine/actor.py:287-293
+-- App: engine/actor.js:285-299 (_failSafe)
 -- =============================================================================
 -- WRITE
 UPDATE matches
@@ -975,7 +987,7 @@ WHERE id = '8f1f9562-bc91-4039-88fd-b5b2a78559d0';
 
 -- =============================================================================
 -- Q72 · WRITE · Start-up: abort every match the last process left running
--- App: engine/service.py:63-69 (SELECT them, then save each); here one UPDATE.
+-- App: engine/service.js:41-51 (abortStale: one UPDATE, as here).
 -- =============================================================================
 -- WRITE
 UPDATE matches
@@ -989,7 +1001,7 @@ WHERE status IN ('starting', 'live');
 
 -- =============================================================================
 -- Q73 · WRITE · Seed: add or update a problem by slug
--- App: seed.py:39-62 (SELECT by slug, then INSERT or UPDATE); here one upsert.
+-- App: seed.js:41 (a Prisma upsert by slug); here one INSERT ... ON CONFLICT.
 -- =============================================================================
 -- WRITE
 INSERT INTO problems (slug, title, statement_md, biome, rating, tier, base_damage, base_recoil, time_limit_ms,
@@ -1003,7 +1015,7 @@ RETURNING id;
 
 -- =============================================================================
 -- Q74 · WRITE · Seed: remove a problem's old test cases
--- App: seed.py:64
+-- App: seed.js:42
 -- =============================================================================
 -- WRITE
 DELETE FROM test_cases
@@ -1011,7 +1023,7 @@ WHERE problem_id = 3;
 
 -- =============================================================================
 -- Q75 · WRITE · Seed: write its new test cases
--- App: seed.py:66
+-- App: seed.js:43-45 (one multi-row INSERT)
 -- =============================================================================
 -- WRITE
 INSERT INTO test_cases (problem_id, idx, input_text, expected_text, is_sample)
@@ -1021,7 +1033,7 @@ VALUES (3, 0, E'5\n1 2 3 2 1\n', E'3\n', TRUE),
 
 -- =============================================================================
 -- Q76 · WRITE · Seed: create a bot profile if it does not exist
--- App: seed.py:104-110 (ensure_bots: SELECT, then INSERT)
+-- App: seed.js:64-68 (ensureBots: SELECT, then INSERT)
 -- =============================================================================
 -- WRITE
 INSERT INTO profiles (display_name, is_bot, personality, rating, peak_rating, avatar_color)

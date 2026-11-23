@@ -1,6 +1,7 @@
 Q38 · READ · Before saving the verdict, the ORM loads the submission it merges into
-App: engine/actor.py:315 (session.merge issues a primary-key SELECT). The
-app binds the id; here (SELECT currval(...)) stands for "the id Q37 returned".
+App: no longer run. The SQLAlchemy backend read the submission before
+merging the verdict; Prisma's update (engine/actor.js:317) does not. Here
+(SELECT currval(...)) stands for "the id Q37 returned".
 It must be a subquery: a bare currval() is volatile and would make
 PostgreSQL scan the table instead of using the primary key.
 

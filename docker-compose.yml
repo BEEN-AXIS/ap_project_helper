@@ -1,17 +1,32 @@
 # docker compose up --build   ->  http://localhost:8000
 #
-# Two services:
-#   judge-image  builds algoarena-judge:latest and exits (the image DockerRunner uses)
-#   api          FastAPI + the built web app, SQLite on a named volume
+# Three services:
+#   db           PostgreSQL 16 on a named volume
+#   judge-image  builds algoarena-judge:latest and exits (the image the Docker runner uses)
+#   api          Node.js (Express, ws, Prisma) + the built web app
 #
 # The api mounts the Docker socket so it can start a locked-down sibling container
 # per submission. Anything that can reach that socket is root on the host: see the
 # security note in README.md. To avoid the socket, set JUDGE_BACKEND=judge0 and
 # JUDGE0_URL, and delete the socket volume line.
 services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: algoarena
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-algoarena}
+      POSTGRES_DB: algoarena
+    volumes:
+      - algoarena-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U algoarena -d algoarena"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
   judge-image:
     build:
-      context: ./backend/app/judge
+      context: ./server/src/judge/harness
       dockerfile: Dockerfile.judge
     image: algoarena-judge:latest
     command: ["true"]
@@ -20,6 +35,8 @@ services:
   api:
     build: .
     depends_on:
+      db:
+        condition: service_healthy
       judge-image:
         condition: service_completed_successfully
     ports:
@@ -29,14 +46,13 @@ services:
         required: false
     environment:
       ENV: ${ENV:-dev}
-      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/algoarena.db}
+      DATABASE_URL: postgresql://algoarena:${POSTGRES_PASSWORD:-algoarena}@db:5432/algoarena
       JUDGE_BACKEND: ${JUDGE_BACKEND:-docker}
       JUDGE_IMAGE: algoarena-judge:latest
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8000}
     volumes:
-      - algoarena-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 volumes:
-  algoarena-data:
+  algoarena-pg:

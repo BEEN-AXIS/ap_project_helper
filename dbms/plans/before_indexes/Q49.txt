@@ -1,5 +1,5 @@
 Q49 · READ · Rematch rule: ranked meetings of the same pair in the last hour
-App: engine/finish.py:46-53 (_previous_meetings; the app counts the rows)
+App: engine/finish.js:39-49 (previousMeetings; the app counts with COUNT(*))
 
 SELECT count(*)
 FROM matches

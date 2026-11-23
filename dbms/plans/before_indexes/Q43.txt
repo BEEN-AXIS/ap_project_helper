@@ -1,5 +1,5 @@
 Q43 · WRITE · A card was submitted: drop that slot's drafts
-App: engine/actor.py:755
+App: engine/actor.js:755
 
 DELETE FROM drafts
 WHERE match_id = '552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f'

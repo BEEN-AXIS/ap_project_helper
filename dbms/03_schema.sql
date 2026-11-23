@@ -1,13 +1,13 @@
 -- =============================================================================
 -- AlgoArena (cp_battle): the database schema for PostgreSQL (tested on 16.15)
 --
--- These are the 17 tables the backend uses (backend/app/models/__init__.py), with
+-- These are the 17 tables the server uses (server/prisma/schema.prisma), with
 -- the same table and column names, types, unique constraints and indexes the app creates.
--- Checked against the schema the app's own Alembic migrations build on
+-- Checked against the schema the app's own Prisma migration builds on
 -- PostgreSQL 16: identical apart from what this file adds, which is
 --   * the foreign keys and CHECK constraints the app's data already obeys but its
 --     models leave implicit (the models declare 7 of the 23 foreign keys),
---   * column DEFAULTs matching the models' Python-side defaults, and
+--   * column DEFAULTs matching the defaults the server fills in, and
 --   * readable names for the unique constraints (the app lets PostgreSQL name
 --     them, e.g. uq_test_cases_problem_idx is test_cases_problem_id_idx_key there).
 --

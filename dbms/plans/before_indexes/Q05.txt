@@ -1,5 +1,5 @@
 Q05 · WRITE · Issue a refresh token (only its SHA-256 is stored)
-App: api/auth.py:50 (_issue_refresh, on signup, login and refresh)
+App: api/auth.js:19 (issueRefresh, on signup, login and refresh)
 
 INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
 VALUES (26, '5d41402abc4b2a76b9719d911017c592aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',

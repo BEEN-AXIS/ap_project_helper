@@ -1,5 +1,5 @@
 Q61 · READ · Admin: the latest 100 matches, searched by player name or id
-App: api/admin.py:45-48 (the app filters the 100 rows in Python)
+App: api/admin.js:45-46 (the app filters the 100 rows in JavaScript)
 
 SELECT id, mode, map, status, created_at, end_reason, winner_side, player1_name, player2_name
 FROM (SELECT *

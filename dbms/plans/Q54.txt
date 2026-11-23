@@ -1,5 +1,5 @@
 Q54 · WRITE · A new achievement: record it, add the badge, save the counters
-App: engine/finish.py:181-188 (INSERT, then the profile's badges and counters
+App: engine/finish.js:181-184 (INSERT, then the profile's badges and counters
 in the later profile UPDATE); here one statement joined on the new row.
 
 WITH earned AS (

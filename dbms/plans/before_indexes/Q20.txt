@@ -1,6 +1,6 @@
 Q20 · READ · Career stats: distinct problems solved, by topic and tier
-App: services/stats.py:119-134 (joins submission rows to the problem cache
-in Python); here a JOIN to problems.
+App: services/stats.js:108-127 (joins submission rows to the problem cache
+in JavaScript); here a JOIN to problems.
 
 SELECT pr.biome, pr.tier, count(DISTINCT s.problem_id) AS solved
 FROM submissions s

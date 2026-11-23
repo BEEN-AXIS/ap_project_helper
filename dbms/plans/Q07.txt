@@ -1,5 +1,5 @@
 Q07 · WRITE · Refresh with a token that was already used: revoke the whole family
-App: api/auth.py:134-136 (SELECT the live tokens, then UPDATE each); here one UPDATE.
+App: api/auth.js:96 (one UPDATE of every live token of the user, as here).
 
 UPDATE refresh_tokens
 SET revoked_at = now() AT TIME ZONE 'utc'

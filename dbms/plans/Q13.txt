@@ -1,7 +1,8 @@
 Q13 · WRITE · Claim a finished quest and pay its Arena Points
-App: api/players.py:120-131 (SELECT the quest, SELECT the profile, then two
-UPDATEs); here one statement: the quest is marked claimed only if it was
-earned and not yet claimed, and the points are added through a join on it.
+App: api/players.js:142-147 (SELECT the quest, an UPDATE that marks it claimed
+only if it was not, then an UPDATE that adds the points); here one statement:
+the quest is marked claimed only if it was earned and not yet claimed, and the
+points are added through a join on it.
 
 WITH claimed AS (
     UPDATE quest_progress

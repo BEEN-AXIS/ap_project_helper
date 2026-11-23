@@ -1,5 +1,6 @@
 Q36 · WRITE · Append the command's events to the match log
-App: engine/actor.py:321 (one INSERT per event, same transaction)
+App: engine/actor.js:326 (one multi-row INSERT for the command's events, same
+transaction)
 
 INSERT INTO match_events (match_id, seq, t_ms, type, payload, visibility)
 VALUES ('552ba0bd-997e-4e6f-8bb9-dc5a3cec1f7f', 15, 301250, 'submission.received', '{"side": 1, "slot": 2, "submission_id": 1}', 'both'),

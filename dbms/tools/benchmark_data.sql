@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Benchmark data for 05_query_timings.md: a year of play for 20,000 players.
 --
--- Run after 03_schema.sql and tools/load_problems.py:
+-- Run after 03_schema.sql and tools/load_problems.js:
 --     psql -d algoarena -f dbms/tools/benchmark_data.sql
 --
 -- Reproducible: setseed() fixes every random() below, and "now" is pinned to
@@ -11,7 +11,7 @@
 --   match_events 2,500,520 · submissions 499,940 · rating_history 145,715
 --   inventory 240,862 · purchases 26,401 · quest_progress 188,680
 --   achievements 15,642 · drafts 400 · flags 2,000 · reports 567 · audit_log 3,000
---   problems 17 · test_cases 144 (from tools/load_problems.py); about 1.4 GB.
+--   problems 17 · test_cases 144 (from tools/load_problems.js); about 1.4 GB.
 -- =============================================================================
 \set ON_ERROR_STOP on
 SET client_min_messages = warning;

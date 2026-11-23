@@ -1,5 +1,6 @@
 Q45 · READ · Rebuild a match from its log (replays, recovery)
-App: engine/actor.py:950-951 (_load_events, every visibility)
+App: engine/actor.js:437 (resuming a socket: every visibility, filtered in
+JavaScript)
 
 SELECT seq, t_ms, type, payload, visibility
 FROM match_events

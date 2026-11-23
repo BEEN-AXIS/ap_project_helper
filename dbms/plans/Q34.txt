@@ -1,5 +1,7 @@
 Q34 · READ · Before each save, the ORM loads the match row it merges into
-App: engine/actor.py:313 (session.merge issues a primary-key SELECT)
+App: no longer run. The SQLAlchemy backend read the row before every merge;
+Prisma's update (engine/actor.js:309) is one UPDATE by primary key and reads
+nothing first. Kept so the timings below still line up with 05.
 
 SELECT *
 FROM matches

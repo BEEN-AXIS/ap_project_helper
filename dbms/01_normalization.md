@@ -2,8 +2,8 @@
 
 This walks AlgoArena's data from one unnormalized "battle record" through 1NF, 2NF, 3NF
 and BCNF, then checks each of the 17 tables in [`03_schema.sql`](03_schema.sql) against
-those forms. The schema is the one the app really uses (the SQLModel models in
-`backend/app/models/__init__.py`). Most of it reaches BCNF. Where it doesn't, the gap is a
+those forms. The schema is the one the app really uses (the Prisma models in
+`server/prisma/schema.prisma`). Most of it reaches BCNF. Where it doesn't, the gap is a
 deliberate copy of a value that could be derived, and this file names each one, gives its
 BCNF form, and says why the app keeps the copy.
 
@@ -107,9 +107,9 @@ relations with a composite key can fail it. Checking each one:
 | achievements | (profile_id, key) | No. |
 | rating_history | (profile_id, match_id) | No (but see 3NF). |
 | match_players | (match_id, side) | No (but see 3NF). |
-| **submissions** | (profile_id, cmd_id) | **Yes: profile_id → is_bot.** Only bots send "simulated" submissions (`engine/bots.py:89`), so the flag is the submitter's `profiles.is_bot`. |
-| **quest_progress** | (profile_id, day, key) | **Yes: key → target.** The target comes from the quest's definition, the same for everyone on every day (`engine/finish.py:171` copies `q.target` from `shared/game-config.json`). |
-| **drafts** | (match_id, profile_id, slot, language) | **Yes: (match_id, profile_id, slot) → problem_slug.** Every draft for a slot is for the card in that slot; when the card leaves the slot (submitted or rerolled) its drafts are deleted (`engine/actor.py:752-755`, called at `:721` and `:822`). |
+| **submissions** | (profile_id, cmd_id) | **Yes: profile_id → is_bot.** Only bots send "simulated" submissions (`server/src/engine/bots.js:85`), so the flag is the submitter's `profiles.is_bot`. |
+| **quest_progress** | (profile_id, day, key) | **Yes: key → target.** The target comes from the quest's definition, the same for everyone on every day (`server/src/engine/finish.js:170` copies `q.target` from `shared/game-config.json`). |
+| **drafts** | (match_id, profile_id, slot, language) | **Yes: (match_id, profile_id, slot) → problem_slug.** Every draft for a slot is for the card in that slot; when the card leaves the slot (submitted or rerolled) its drafts are deleted (`server/src/engine/actor.js:753-755`, called at `:722` and `:816`). |
 
 The 2NF decompositions:
 
@@ -126,10 +126,10 @@ The 2NF decompositions:
 
 | Relation | Transitive dependency | Where the app does it |
 |---|---|---|
-| problems | id → rating → tier → (base_damage, base_recoil) | `seed.py:37-42`: `tier = get_tier(rating)`, then the tier's row of `tiers` in the game config |
-| matches, per side | (match_id, side) → rating → tier → max_hp | `engine/service.py:97-110` (`_snapshot`) |
-| matches, per side | (match_id, side) → profile_id → is_bot, and → name | the snapshot copies them; display names are written only at sign-up and never changed (`api/auth.py:82`, `seed.py`) |
-| matches | id → (status, winner_side) → outcome | `engine/actor.py:897-922`: aborted ⇒ outcome *aborted*; finished with a winner ⇒ *win*; finished without ⇒ *draw* |
+| problems | id → rating → tier → (base_damage, base_recoil) | `server/src/seed.js:31-32`: `tier = getTier(rating)`, then the tier's row of `tiers` in the game config |
+| matches, per side | (match_id, side) → rating → tier → max_hp | `server/src/engine/service.js:81-100` (`_snapshot`) |
+| matches, per side | (match_id, side) → profile_id → is_bot, and → name | the snapshot copies them; display names are written only at sign-up and never changed (`server/src/api/auth.js:59`, `server/src/seed.js`) |
+| matches | id → (status, winner_side) → outcome | `server/src/engine/actor.js:886-935`: aborted ⇒ outcome *aborted*; finished with a winner ⇒ *win*; finished without ⇒ *draw* |
 | rating_history | (profile_id, match_id) → (before, after) → delta | `delta = after − before`, also a CHECK (`ck_rating_history_delta`) |
 
 The 3NF decompositions:
@@ -156,7 +156,7 @@ normal form, but each is a value that could be computed instead of stored:
 |---|---|
 | `profiles.wins`, `losses`, `draws` | each side's label in that player's finished matches |
 | `profiles.peak_rating` | `max(after)` over the player's `rating_history` |
-| `profiles.badges` | the keys in the player's `achievements` rows (`engine/finish.py:184-187` writes both) |
+| `profiles.badges` | the keys in the player's `achievements` rows (`server/src/engine/finish.js:181-183` writes both) |
 | `profiles.display_name` of a person | `users.username` (copied at sign-up) |
 | `matches.last_seq` | `max(seq)` of the match's `match_events` |
 | `matches.result` (the result screen) | outcome, winner, labels and final HP of the match, and each side's rating change, which is also in `rating_history` |
@@ -204,7 +204,7 @@ value, `user_id → is_bot` holds (NULL means a bot) while four bots share that 
 `ck_profiles_kind`.
 
 One key the app relies on is not declared: the app writes one `rating_history` row per
-player per match (`engine/finish.py:109`), so **(profile_id, match_id)** is a candidate key
+player per match (`server/src/engine/finish.js:106`), so **(profile_id, match_id)** is a candidate key
 in practice; `UNIQUE (profile_id, match_id)` would let the database enforce it. The
 benchmark data has no duplicates.
 
@@ -217,7 +217,7 @@ benchmark data has no duplicates.
   config, which is the reason to store the result.
 - **The lookup relations live in files.** `tiers`, `quests`, the skin catalogue and the
   achievement definitions are in `shared/game-config.json` and `shared/skins/`, versioned with
-  the code and read by both the backend and the browser. The copies in `problems`,
+  the code and read by both the server and the browser. The copies in `problems`,
   `quest_progress` and `matches` are what tie a row to the config values it was made with.
 - **One row per live match.** The engine rewrites a match's whole state after each hit;
   keeping both sides in one row makes that a single-row read and a single-row update
